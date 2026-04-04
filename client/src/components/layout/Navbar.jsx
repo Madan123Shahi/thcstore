@@ -1,0 +1,284 @@
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  FiShoppingCart,
+  FiSearch,
+  FiUser,
+  FiMenu,
+  FiX,
+  FiHeart,
+  FiLogOut,
+  FiPackage,
+  FiSettings,
+  FiChevronDown,
+} from "react-icons/fi";
+import { GiLeafSkeleton } from "react-icons/gi";
+import { toggleCart } from "../../store/slices/uiSlice";
+import { logout } from "../../store/slices/authSlice";
+import { clearCart } from "../../store/slices/cartSlice";
+import { selectCartCount } from "../../store/slices/cartSlice";
+import { useAuth } from "../../hooks";
+
+const NAV_LINKS = [
+  { label: "Shop All", to: "/products" },
+  { label: "CBD Oils", to: "/products?category=cbd-oils" },
+  { label: "THC Gummies", to: "/products?category=thc-gummies" },
+  { label: "Hemp Wellness", to: "/products?category=hemp-wellness" },
+  { label: "Vijaya Extract", to: "/products?category=vijaya-extract" },
+];
+
+export default function Navbar() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, isLoggedIn, isAdmin } = useAuth();
+  const cartCount = useSelector(selectCartCount);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [scrolled, setScrolled] = useState(false);
+  const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!userMenuRef.current?.contains(e.target)) setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handler);
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+    }
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    dispatch(clearCart());
+    setUserMenuOpen(false);
+    navigate("/");
+  };
+
+  return (
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-white border-b border-gray-100"}`}
+    >
+      {/* Announcement bar */}
+      <div className="bg-primary-700 text-white text-xs text-center py-2 px-4 font-medium tracking-wide">
+        🌿 Free shipping on orders above ₹999 &nbsp;|&nbsp; Lab-tested &amp;
+        AYUSH-approved products
+      </div>
+
+      <div className="page-container">
+        <div className="flex items-center justify-between h-16 gap-4">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2 shrink-0 group">
+            <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-primary-700 transition-colors">
+              <GiLeafSkeleton className="text-white text-xl" />
+            </div>
+            <div className="leading-none">
+              <span className="font-display font-bold text-gray-900 text-lg">
+                THC
+              </span>
+              <span className="font-display font-bold text-primary-600 text-lg">
+                {" "}
+                Store
+              </span>
+              <p className="text-[10px] text-gray-400 font-sans tracking-widest uppercase">
+                India
+              </p>
+            </div>
+          </Link>
+
+          {/* Desktop nav */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-150
+                  ${
+                    location.pathname + location.search === link.to
+                      ? "text-primary-700 bg-primary-50"
+                      : "text-gray-600 hover:text-primary-700 hover:bg-gray-50"
+                  }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Search */}
+          <form
+            onSubmit={handleSearch}
+            className="hidden md:flex items-center flex-1 max-w-xs"
+          >
+            <div className="relative w-full">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products, brands…"
+                className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all"
+              />
+            </div>
+          </form>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            {/* Wishlist */}
+            <Link
+              to="/wishlist"
+              className="btn-ghost p-2.5 relative hidden sm:flex"
+            >
+              <FiHeart className="text-lg" />
+            </Link>
+
+            {/* Cart */}
+            <button
+              onClick={() => dispatch(toggleCart())}
+              className="btn-ghost p-2.5 relative"
+            >
+              <FiShoppingCart className="text-lg" />
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* User menu */}
+            {isLoggedIn ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="flex items-center gap-2 pl-3 pr-2 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                    <span className="text-primary-700 font-semibold text-sm">
+                      {user?.name?.[0]?.toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-[80px] truncate">
+                    {user?.name?.split(" ")[0]}
+                  </span>
+                  <FiChevronDown
+                    className={`text-gray-400 text-sm transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-lg border border-gray-100 py-1.5 animate-scale-in z-50">
+                    <div className="px-4 py-2 border-b border-gray-50">
+                      <p className="text-sm font-semibold text-gray-800 truncate">
+                        {user?.name}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {user?.email}
+                      </p>
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <FiUser className="text-gray-400" /> My Profile
+                    </Link>
+                    <Link
+                      to="/orders"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <FiPackage className="text-gray-400" /> My Orders
+                    </Link>
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-primary-700 hover:bg-primary-50 transition-colors"
+                      >
+                        <FiSettings className="text-primary-500" /> Admin Panel
+                      </Link>
+                    )}
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <FiLogOut className="text-red-400" /> Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="btn-primary py-2 px-4 text-sm hidden sm:flex"
+              >
+                <FiUser className="text-sm" /> Sign In
+              </Link>
+            )}
+
+            {/* Mobile menu */}
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              className="btn-ghost p-2.5 lg:hidden"
+            >
+              {mobileOpen ? (
+                <FiX className="text-xl" />
+              ) : (
+                <FiMenu className="text-xl" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="lg:hidden border-t border-gray-100 bg-white animate-slide-down">
+          <div className="page-container py-4 space-y-1">
+            <form onSubmit={handleSearch} className="relative mb-3">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products…"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
+              />
+            </form>
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="block px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-primary-700 hover:bg-primary-50 rounded-xl transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+            {!isLoggedIn && (
+              <Link to="/login" className="btn-primary w-full mt-2 text-sm">
+                Sign In
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </header>
+  );
+}

@@ -1,2 +1,3 @@
-const router = require('express').Router();
-module.exports = router; // Reviews are handled via /api/products/:id/reviews
+import express from "express";
+const router = express.Router();
+export default router; // Reviews are handled via /api/products/:id/reviews

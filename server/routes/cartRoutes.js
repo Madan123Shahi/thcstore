@@ -1,7 +1,10 @@
 // cartRoutes.js - Cart is managed client-side via Redux, this route handles server-sync
-const router = require('express').Router();
-const { protect } = require('../middleware/auth');
+import express from "express";
+const router = express.Router();
+import { protect } from "../middleware/auth.js";
 
-router.get('/', protect, (req, res) => res.json({ message: 'Cart is managed client-side' }));
+router.get("/", protect, (req, res) =>
+  res.json({ message: "Cart is managed client-side" }),
+);
 
-module.exports = router;
+export default router;

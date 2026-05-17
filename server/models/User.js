@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     phone: { type: String, trim: true },
+    uploadDL: {
+      type: String,
+      required: [true, "Driver License or State ID is required"],
+    },
     password: {
       type: String,
       required: [true, "Password is required"],
@@ -30,7 +34,10 @@ const userSchema = new mongoose.Schema(
     },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     addresses: [addressSchema],
-    dateOfBirth: Date,
+    dob: {
+      type: Date,
+      required: [true, "Date of birth is required"],
+    },
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     prescriptionUploaded: { type: Boolean, default: false },

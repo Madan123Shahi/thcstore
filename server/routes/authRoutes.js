@@ -1,6 +1,7 @@
 import express from "express";
 const router = express.Router();
 import { protect } from "../middleware/auth.js";
+import upload from "../middleware/upload.js";
 import {
   register,
   login,
@@ -11,7 +12,7 @@ import {
   toggleWishlist,
 } from "../controllers/authController.js";
 
-router.post("/register", register);
+router.post("/register", upload.single("file"), register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);

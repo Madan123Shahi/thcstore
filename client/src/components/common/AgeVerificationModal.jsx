@@ -2,13 +2,13 @@ import { useDispatch } from "react-redux";
 import { setAgeVerified } from "../../store/slices/uiSlice";
 import { GiLeafSkeleton } from "react-icons/gi";
 import { FiAlertTriangle } from "react-icons/fi";
-
+import { useNavigate } from "react-router-dom";
 export default function AgeVerificationModal() {
   const dispatch = useDispatch();
-
+  const navigate = useNavigate();
   return (
-    <div className="fixed inset-0 z-[100] bg-gray-950/95 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-8 text-center shadow-2xl animate-scale-in">
+    <div className="fixed inset-0 z-[100] bg-gray-950/95 backdrop-blur-md  flex items-center justify-center">
+      <div className="bg-white rounded-3xl max-w-md w-full p-8    text-center shadow-2xl animate-scale-in">
         <div className="w-16 h-16 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
           <GiLeafSkeleton className="text-primary-600 text-3xl" />
         </div>
@@ -31,7 +31,10 @@ export default function AgeVerificationModal() {
         </p>
         <div className="flex gap-3">
           <button
-            onClick={() => dispatch(setAgeVerified(true))}
+            onClick={() => {
+              dispatch(setAgeVerified(true));
+              navigate("/register");
+            }}
             className="btn-primary flex-1 py-3"
           >
             Yes, I am 18+

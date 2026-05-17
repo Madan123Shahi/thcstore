@@ -8,17 +8,26 @@ const signToken = (id) =>
   });
 
 export const register = asyncHandler(async (req, res) => {
-  const { name, email, password, phone } = req.body;
-  if (!name || !email || !password)
-    return res
-      .status(400)
-      .json({ error: "Name, email and password are required" });
+  const { name, email, password, phone, dob } = req.body;
+  const uploadDL = req.file;
+  if (!name || !email || !password || !phone || !dob || !uploadDL)
+    return res.status(400).json({
+      error:
+        "Name, email, password, phone number, date of birth and driver license are required",
+    });
 
   const exists = await User.findOne({ email });
   if (exists)
     return res.status(400).json({ error: "Email already registered" });
 
-  const user = await User.create({ name, email, password, phone });
+  const user = await User.create({
+    name,
+    email,
+    password,
+    phone,
+    dob,
+    uploadDL: uploadDL.path,
+  });
   const token = signToken(user._id);
 
   res.status(201).json({

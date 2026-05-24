@@ -39,17 +39,16 @@ export const useWishlist = (productId) => {
   return { isWishlisted, handleToggle };
 };
 
+// ✅ token removed — auth is now based on user + cookie
 const selectAuth = createSelector(
   (s) => s.auth.user,
-  (s) => s.auth.token,
-  (s) => s.auth.loading,
-  (s) => s.auth.error,
-  (user, token, loading, error) => ({
+  (s) => s.auth.fetchMeLoading, // ✅ was s.auth.loading (wrong key)
+  (s) => s.auth.fetchMeError, // ✅ was s.auth.error (wrong key)
+  (user, fetchMeLoading, fetchMeError) => ({
     user,
-    token,
-    loading,
-    error,
-    isLoggedIn: !!token,
+    fetchMeLoading,
+    fetchMeError,
+    isLoggedIn: !!user, // ✅ was !!token — token no longer exists
     isAdmin: user?.role === "admin",
   }),
 );

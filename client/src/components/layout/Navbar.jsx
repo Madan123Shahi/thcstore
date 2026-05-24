@@ -15,7 +15,7 @@ import {
 } from "react-icons/fi";
 import { GiLeafSkeleton } from "react-icons/gi";
 import { toggleCart } from "../../store/slices/uiSlice";
-import { logout } from "../../store/slices/authSlice";
+import { logoutUser } from "../../store/slices/authSlice";
 import { clearCart } from "../../store/slices/cartSlice";
 import { selectCartCount } from "../../store/slices/cartSlice";
 import { useAuth } from "../../hooks";
@@ -66,11 +66,12 @@ export default function Navbar() {
     }
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+    // dispatch(logoutUser());
     dispatch(clearCart());
     setUserMenuOpen(false);
-    navigate("/");
+    navigate("/login");
   };
 
   return (

@@ -1,7 +1,8 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice } from "@reduxjs/toolkit";
+import { logoutUser } from "./authSlice";
 
 const uiSlice = createSlice({
-  name: 'ui',
+  name: "ui",
   initialState: {
     isCartOpen: false,
     isMobileMenuOpen: false,
@@ -9,18 +10,39 @@ const uiSlice = createSlice({
     ageVerified: false,
   },
   reducers: {
-    toggleCart: (s) => { s.isCartOpen = !s.isCartOpen; },
-    setCartOpen: (s, a) => { s.isCartOpen = a.payload; },
-    toggleMobileMenu: (s) => { s.isMobileMenuOpen = !s.isMobileMenuOpen; },
-    setMobileMenuOpen: (s, a) => { s.isMobileMenuOpen = a.payload; },
-    toggleSearch: (s) => { s.isSearchOpen = !s.isSearchOpen; },
-    setAgeVerified: (s, a) => { s.ageVerified = a.payload; },
+    toggleCart: (s) => {
+      s.isCartOpen = !s.isCartOpen;
+    },
+    setCartOpen: (s, a) => {
+      s.isCartOpen = a.payload;
+    },
+    toggleMobileMenu: (s) => {
+      s.isMobileMenuOpen = !s.isMobileMenuOpen;
+    },
+    setMobileMenuOpen: (s, a) => {
+      s.isMobileMenuOpen = a.payload;
+    },
+    toggleSearch: (s) => {
+      s.isSearchOpen = !s.isSearchOpen;
+    },
+    setAgeVerified: (s, a) => {
+      s.ageVerified = a.payload;
+    },
+  },
+  extraReducers: (builder) => {
+    // ✅ reset ageVerified when user logs out
+    builder.addCase(logoutUser.fulfilled, (state) => {
+      state.ageVerified = false;
+    });
   },
 });
 
 export const {
-  toggleCart, setCartOpen,
-  toggleMobileMenu, setMobileMenuOpen,
-  toggleSearch, setAgeVerified,
+  toggleCart,
+  setCartOpen,
+  toggleMobileMenu,
+  setMobileMenuOpen,
+  toggleSearch,
+  setAgeVerified,
 } = uiSlice.actions;
 export default uiSlice.reducer;

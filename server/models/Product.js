@@ -50,17 +50,50 @@ const productSchema = new mongoose.Schema(
 );
 
 // Auto-compute discount
-productSchema.pre("save", function (next) {
-  if (this.mrp > 0 && this.price < this.mrp) {
-    this.discount = Math.round(((this.mrp - this.price) / this.mrp) * 100);
+productSchema.pre("save", async function (next) {
+  try {
+    // Auto-compute discount
+    if (this.mrp > 0 && this.price < this.mrp) {
+      this.discount = Math.round(((this.mrp - this.price) / this.mrp) * 100);
+    }
+
+    // Auto-generate slug
+    if (!this.slug) {
+      this.slug = this.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    }
+
+    // Auto-generate SKU
+    if (!this.sku) {
+      const Category = mongoose.model("Category");
+      const category = await Category.findById(this.category);
+
+      const prefixMap = {
+        "cbd-oils": "CBDO",
+        "thc-gummies": "THCG",
+        "vijaya-extract": "VIJA",
+        "hemp-wellness": "HEMP",
+        tinctures: "TINC",
+        "pet-cbd": "PETC",
+        capsules: "CAPS",
+        topicals: "TOPO",
+      };
+
+      const prefix = prefixMap[category?.slug] || "PROD";
+
+      const count = await mongoose.model("Product").countDocuments({
+        category: this.category,
+      });
+
+      this.sku = `${prefix}-${String(count + 1).padStart(4, "0")}`;
+    }
+
+    next();
+  } catch (error) {
+    next(error);
   }
-  if (!this.slug) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-  }
-  next();
 });
 
 export default mongoose.model("Product", productSchema);

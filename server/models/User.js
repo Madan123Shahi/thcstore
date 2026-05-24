@@ -22,7 +22,12 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    phone: { type: String, trim: true },
+    phone: {
+      type: String,
+      trim: true,
+      Unique: true,
+      required: [true, "Phone Number is required"],
+    },
     uploadDL: {
       type: String,
       required: [true, "Driver License or State ID is required"],

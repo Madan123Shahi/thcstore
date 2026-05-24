@@ -24,7 +24,31 @@ export const login = createAsyncThunk(
       const res = await api.post("/auth/login", data);
       return res.data;
     } catch (err) {
+      console.log("full err:", err);
+      console.log("err.response:", err.response);
+      console.log("err.response.data:", err.response?.data);
+      console.log("err.response.status:", err.response?.status);
+      if (!err.response) {
+        return rejectWithValue("Server not connected");
+      }
+
+      if (err.response.status === 500) {
+        return rejectWithValue("Server error. Please try again later.");
+      }
+
       return rejectWithValue(err.response?.data?.error || "Login failed");
+    }
+  },
+);
+
+// ───────────────── LOGOUT ─────────────────
+export const logoutUser = createAsyncThunk(
+  "auth/logout",
+  async (_, { rejectWithValue }) => {
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.error || "Logout failed");
     }
   },
 );
@@ -78,32 +102,32 @@ const authSlice = createSlice({
 
   initialState: {
     user: null,
-    token: null,
 
-    // Separate loading states
     registerLoading: false,
     loginLoading: false,
+    logoutLoading: false,
     fetchMeLoading: false,
     updateProfileLoading: false,
     addAddressLoading: false,
 
-    // Separate error states
+    // keeping errors in state for other potential uses
     registerError: null,
     loginError: null,
+    logoutError: null,
     fetchMeError: null,
     updateProfileError: null,
     addAddressError: null,
   },
 
   reducers: {
-    logout(state) {
+    clearAuth(state) {
       state.user = null;
-      state.token = null;
     },
 
     clearError(state) {
       state.registerError = null;
       state.loginError = null;
+      state.logoutError = null;
       state.fetchMeError = null;
       state.updateProfileError = null;
       state.addAddressError = null;
@@ -118,13 +142,10 @@ const authSlice = createSlice({
         state.registerLoading = true;
         state.registerError = null;
       })
-
       .addCase(register.fulfilled, (state, action) => {
         state.registerLoading = false;
-        state.token = action.payload.token;
         state.user = action.payload.user;
       })
-
       .addCase(register.rejected, (state, action) => {
         state.registerLoading = false;
         state.registerError = action.payload;
@@ -135,16 +156,28 @@ const authSlice = createSlice({
         state.loginLoading = true;
         state.loginError = null;
       })
-
       .addCase(login.fulfilled, (state, action) => {
         state.loginLoading = false;
-        state.token = action.payload.token;
         state.user = action.payload.user;
       })
-
       .addCase(login.rejected, (state, action) => {
         state.loginLoading = false;
         state.loginError = action.payload;
+      })
+
+      // ───────── LOGOUT ─────────
+      .addCase(logoutUser.pending, (state) => {
+        state.logoutLoading = true;
+        state.logoutError = null;
+      })
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.logoutLoading = false;
+        state.user = null;
+      })
+      .addCase(logoutUser.rejected, (state, action) => {
+        state.logoutLoading = false;
+        state.logoutError = action.payload;
+        state.user = null;
       })
 
       // ───────── FETCH USER ─────────
@@ -152,15 +185,14 @@ const authSlice = createSlice({
         state.fetchMeLoading = true;
         state.fetchMeError = null;
       })
-
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.fetchMeLoading = false;
         state.user = action.payload;
       })
-
       .addCase(fetchMe.rejected, (state, action) => {
         state.fetchMeLoading = false;
         state.fetchMeError = action.payload;
+        state.user = null;
       })
 
       // ───────── UPDATE PROFILE ─────────
@@ -168,12 +200,10 @@ const authSlice = createSlice({
         state.updateProfileLoading = true;
         state.updateProfileError = null;
       })
-
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.updateProfileLoading = false;
         state.user = action.payload;
       })
-
       .addCase(updateProfile.rejected, (state, action) => {
         state.updateProfileLoading = false;
         state.updateProfileError = action.payload;
@@ -184,15 +214,12 @@ const authSlice = createSlice({
         state.addAddressLoading = true;
         state.addAddressError = null;
       })
-
       .addCase(addAddress.fulfilled, (state, action) => {
         state.addAddressLoading = false;
-
         if (state.user) {
           state.user.addresses = action.payload;
         }
       })
-
       .addCase(addAddress.rejected, (state, action) => {
         state.addAddressLoading = false;
         state.addAddressError = action.payload;
@@ -200,6 +227,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { clearAuth, clearError } = authSlice.actions;
 
 export default authSlice.reducer;

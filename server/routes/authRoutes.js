@@ -5,6 +5,7 @@ import upload from "../middleware/upload.js";
 import {
   register,
   login,
+  logout,
   getMe,
   updateProfile,
   changePassword,
@@ -14,6 +15,7 @@ import {
 
 router.post("/register", upload.single("file"), register);
 router.post("/login", login);
+router.post("/logout", logout);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.put("/password", protect, changePassword);

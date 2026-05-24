@@ -3,7 +3,7 @@ import { setAgeVerified } from "../../store/slices/uiSlice";
 import { GiLeafSkeleton } from "react-icons/gi";
 import { FiAlertTriangle } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-export default function AgeVerificationModal() {
+export default function AgeVerificationModal({ onVerified }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   return (
@@ -33,7 +33,6 @@ export default function AgeVerificationModal() {
           <button
             onClick={() => {
               dispatch(setAgeVerified(true));
-              navigate("/register");
             }}
             className="btn-primary flex-1 py-3"
           >

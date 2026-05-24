@@ -33,7 +33,7 @@ const persistConfig = {
   key: "thcstore",
   version: 1,
   storage,
-  whitelist: ["auth", "cart", "wishlist", "ui"],
+  whitelist: ["cart", "wishlist", "ui"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

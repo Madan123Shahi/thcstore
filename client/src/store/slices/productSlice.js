@@ -104,6 +104,8 @@ export const createProduct = createAsyncThunk(
 
       return res.data;
     } catch (err) {
+      console.log("🔴 status:", err.response?.status);
+      console.log("🔴 full data:", JSON.stringify(err.response?.data));
       return rejectWithValue(
         err.response?.data?.message || "Failed to create product",
       );

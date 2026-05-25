@@ -134,40 +134,53 @@ export const getProduct = asyncHandler(async (req, res, next) => {
 export const createProduct = asyncHandler(async (req, res, next) => {
   const body = req.body.data ? JSON.parse(req.body.data) : req.body;
 
-  // Only check name — slug & SKU are auto-generated from it
   const existingProduct = await Product.findOne({ name: body.name });
-
   if (existingProduct) {
     return next(new AppError("A product with this name already exists", 400));
   }
 
-  const product = await Product.create({ ...body });
+  // ✅ Build absolute URLs from uploaded files
+  const uploadedImages = (req.files || []).map((file) => ({
+    url: `${req.protocol}://${req.get("host")}/uploads/${file.filename}`,
+    alt: "",
+  }));
+
+  const product = await Product.create({
+    ...body,
+    images: uploadedImages, // ✅ use uploaded images, not body.images
+  });
 
   res
     .status(201)
     .json({ success: true, message: "Product created successfully", product });
 });
 
-/**
- * Update Product
- */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const body = req.body.data ? JSON.parse(req.body.data) : req.body;
 
-  // If name is changing, make sure new name isn't taken by another product
   if (body.name) {
     const existing = await Product.findOne({
       name: body.name,
-      _id: { $ne: req.params.id }, // exclude current product
+      _id: { $ne: req.params.id },
     });
     if (existing)
       return next(new AppError("A product with this name already exists", 400));
   }
 
-  const product = await Product.findByIdAndUpdate(req.params.id, body, {
-    new: true,
-    runValidators: true,
-  });
+  // Keep existing images + append newly uploaded ones
+  const uploadedImages = (req.files || []).map((file) => ({
+    url: `${req.protocol}://${req.get("host")}/uploads/products/${file.filename}`,
+    alt: "",
+  }));
+
+  const existingImages = body.existingImages || [];
+  const images = [...existingImages, ...uploadedImages]; // ✅ merge both
+
+  const product = await Product.findByIdAndUpdate(
+    req.params.id,
+    { ...body, images },
+    { new: true, runValidators: true },
+  );
 
   if (!product) return next(new AppError("Product not found", 404));
 

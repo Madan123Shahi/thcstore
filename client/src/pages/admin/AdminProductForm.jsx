@@ -68,6 +68,17 @@ const BLANK = {
   specifications: [makeSpec()],
 };
 
+const resolveImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("blob:")) return url; // local preview — fine
+  if (url.startsWith("http")) return url; // already absolute — fine
+  // relative path — prepend server base
+  const base =
+    import.meta.env.VITE_API_URL?.replace("/api", "") ||
+    "http://localhost:5000";
+  return `${base}${url}`;
+};
+
 export default function AdminProductForm() {
   const { id } = useParams();
   const dispatch = useDispatch();
@@ -112,7 +123,7 @@ export default function AdminProductForm() {
           ? current.images.map((img) => ({
               id: uid(),
               file: null,
-              preview: img.url || "",
+              preview: resolveImageUrl(img.url),
               alt: img.alt || "",
               existing: img.url || "",
             }))
@@ -568,10 +579,15 @@ export default function AdminProductForm() {
                   <label className="relative block w-full aspect-square rounded-xl border-2 border-dashed border-gray-200 hover:border-primary-400 cursor-pointer overflow-hidden transition-colors">
                     {img.preview ? (
                       <>
+                        {console.log("🖼 img.preview:", img.preview)}
                         <img
                           src={img.preview}
                           alt={img.alt || "preview"}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "/placeholder.png"; // ← put a placeholder in /public
+                          }}
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity">
                           <FiUpload className="text-white text-lg" />

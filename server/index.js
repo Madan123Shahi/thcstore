@@ -19,7 +19,12 @@ connectDB();
 const app = express();
 
 // Security
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // allows images to load cross-origin
+  }),
+);
+
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",

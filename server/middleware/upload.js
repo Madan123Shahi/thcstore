@@ -3,15 +3,14 @@ import path from "path";
 import fs from "fs";
 
 // ─── Ensure uploads folder exists ─────────────────────────────────────────────
-const uploadDir = "uploads/";
+const uploadDir = "uploads/products/";
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-
 // ─── Storage config ───────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, uploadDir); // files saved to /uploads
+    cb(null, uploadDir);
   },
   filename: (_req, file, cb) => {
     // e.g.  dl-1714901234567-482910234.pdf

@@ -18,7 +18,7 @@ router.get("/featured", getFeatured);
 router.get("/bestsellers", getBestSellers);
 router.get("/:id", getProduct);
 router.post("/", protect, admin, upload.array("images", 10), createProduct);
-router.put("/:id", protect, admin, updateProduct);
+router.put("/:id", protect, admin, upload.array("images", 10), updateProduct);
 router.delete("/:id", protect, admin, deleteProduct);
 router.post("/:id/reviews", protect, addReview);
 

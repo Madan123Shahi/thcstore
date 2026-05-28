@@ -1,4 +1,5 @@
 import { AppError } from "../utils/appError.js";
+import { ZodError } from "zod";
 
 /**
  * Handle Mongoose CastError (invalid ObjectId)
@@ -57,23 +58,23 @@ const sendErrorDev = (err, res) => {
  */
 const sendErrorProd = (err, res) => {
   if (err.isOperational) {
-    res.status(err.statusCode).json({
+    return res.status(err.statusCode).json({
       success: false,
       status: err.status,
       message: err.message,
-    });
-  } else {
-    // Unknown / programming errors
-    console.error("💥 UNHANDLED ERROR:", err);
-
-    res.status(500).json({
-      success: false,
-      status: "error",
-      message: "Something went wrong. Please try again later.",
+      ...(err.type && { type: err.type }),
+      ...(err.errors && { errors: err.errors }),
     });
   }
-};
 
+  console.error("💥 UNHANDLED ERROR:", err);
+
+  res.status(500).json({
+    success: false,
+    status: "error",
+    message: "Something went wrong. Please try again later.",
+  });
+};
 /**
  * Global Error Handling Middleware
  */
@@ -89,6 +90,17 @@ export const errorHandler = (err, req, res, next) => {
       message: err.message,
       name: err.name,
     };
+
+    if (error instanceof ZodError) {
+      error = new AppError("Validation failed", 422);
+
+      error.errors = error.issues.map((e) => ({
+        field: e.path.join("."),
+        message: e.message,
+      }));
+
+      error.type = "validation";
+    }
 
     // Mongoose Errors
     if (error.name === "CastError") error = handleCastErrorDB(error);

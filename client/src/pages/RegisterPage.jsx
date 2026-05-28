@@ -6,6 +6,12 @@ import { FiEye, FiEyeOff, FiCheck } from "react-icons/fi";
 import { register, clearError } from "../store/slices/authSlice";
 import toast from "react-hot-toast";
 
+// ── Import the shared schema (same file your backend uses) ────────────────────
+import {
+  registerSchema,
+  validateDLFile,
+} from "../../../shared/schemas/auth.schema.js";
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STRENGTH_LEVELS = [
@@ -15,47 +21,14 @@ const STRENGTH_LEVELS = [
   { label: "Strong", color: "bg-primary-500" },
 ];
 
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-const PHONE_REGEX = /^\d{10}$/;
 const MAX_FILE_SIZE_MB = 5;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const ALLOWED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Returns 0–4 based on how many of the 4 character-type rules pass.
- * Hard gate: password must be at least 8 characters to score anything.
- */
 const getPasswordStrength = (pw) => {
   if (!pw || pw.length < 8) return 0;
-
-  const rules = [
-    /[A-Z]/.test(pw), // 1 uppercase
-    /[a-z]/.test(pw), // 1 lowercase
-    /[0-9]/.test(pw), // 1 number
-    /[~`!@#$%^&*();:'"?,.]/.test(pw), // 1 special char
-  ];
-
-  return rules.filter(Boolean).length; // 0–4 → maps to 4 strength bars
-};
-
-const isAtLeast18 = (dob) => {
-  if (!dob) return false;
-  const birthDate = new Date(dob);
-  const today = new Date();
-  const age18Date = new Date(
-    birthDate.getFullYear() + 18,
-    birthDate.getMonth(),
-    birthDate.getDate(),
-  );
-  return today >= age18Date;
+  return [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pw))
+    .length; // 1–4
 };
 
 const getMaxDOB = () => {
@@ -76,14 +49,14 @@ export default function RegisterPage() {
     email: "",
     phone: "",
     dob: "",
-    file: null,
     password: "",
     confirmPassword: "",
   });
-
+  const [file, setFile] = useState(null);
+  const [agreed, setAgreed] = useState(false);
+  const [errors, setErrors] = useState({}); // { fieldName: "message" }
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
-  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     dispatch(clearError());
@@ -94,109 +67,78 @@ export default function RegisterPage() {
 
   const strength = getPasswordStrength(form.password);
 
-  // ── Field helpers ──
-  const set = (field) => (e) =>
+  // ── Field helpers ─────────────────────────────────────────────────────────
+
+  const set = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    // Clear that field's error as the user types
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
 
   const handlePhoneChange = (e) => {
     const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
     setForm((prev) => ({ ...prev, phone: digits }));
+    if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0] || null;
-    if (file) {
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        toast.error(
-          "Only images (JPEG, PNG, GIF, WEBP) and PDF files are allowed",
-        );
-        e.target.value = "";
-        return;
-      }
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        toast.error(`File must be smaller than ${MAX_FILE_SIZE_MB} MB`);
-        e.target.value = "";
-        return;
-      }
+    const picked = e.target.files[0] || null;
+    const fileError = validateDLFile(picked); // uses the shared helper
+    if (fileError) {
+      toast.error(fileError);
+      e.target.value = "";
+      setFile(null);
+      return;
     }
-    setForm((prev) => ({ ...prev, file }));
+    setFile(picked);
+    if (errors.uploadDL)
+      setErrors((prev) => ({ ...prev, uploadDL: undefined }));
   };
 
-  // ── Validation ──
+  // ── Validation via Zod ────────────────────────────────────────────────────
+  //
+  // We call registerSchema.safeParse() directly on our form state.
+  // No React Hook Form needed — Zod works with any data object.
+  //
   const validate = () => {
-    if (!form.name.trim()) {
-      toast.error("Full name is required");
+    // 1. Parse text fields through the shared Zod schema
+    const result = registerSchema.safeParse({ ...form });
+
+    if (!result.success) {
+      // Build a flat { fieldName: firstMessage } map from Zod's error list
+      const fieldErrors = {};
+      for (const issue of result.error.errors) {
+        const field = issue.path[0]; // e.g. "email", "confirmPassword"
+        if (!fieldErrors[field]) fieldErrors[field] = issue.message;
+      }
+      setErrors(fieldErrors);
+
+      // Show the first error as a toast so the user knows something is wrong
+      const first = result.error.errors[0];
+      toast.error(first.message);
       return false;
     }
 
-    if (!EMAIL_REGEX.test(form.email)) {
-      toast.error("Please enter a valid email address");
+    // 2. Validate the file separately (Zod can't inspect File objects)
+    const fileError = validateDLFile(file);
+    if (fileError) {
+      setErrors((prev) => ({ ...prev, uploadDL: fileError }));
+      toast.error(fileError);
       return false;
     }
 
-    if (form.phone && !PHONE_REGEX.test(form.phone)) {
-      toast.error("Phone number must be exactly 10 digits");
-      return false;
-    }
-
-    if (!form.dob) {
-      toast.error("Date of birth is required");
-      return false;
-    }
-
-    if (!isAtLeast18(form.dob)) {
-      toast.error("You must be 18 years or older to register");
-      return false;
-    }
-
-    if (!form.file) {
-      toast.error("Please upload your Driver's License or State ID");
-      return false;
-    }
-
-    // ── Password: minimum 8 characters ──
-    if (form.password.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return false;
-    }
-
-    // ── Password: all 4 character-type rules must pass ──
-    const passwordRules = [
-      {
-        test: /[A-Z]/.test(form.password),
-        msg: "at least 1 uppercase letter (A–Z)",
-      },
-      {
-        test: /[a-z]/.test(form.password),
-        msg: "at least 1 lowercase letter (a–z)",
-      },
-      { test: /[0-9]/.test(form.password), msg: "at least 1 number (0–9)" },
-      {
-        test: /[~`!@#$%^&*();:'"?,.]/.test(form.password),
-        msg: "at least 1 special character (!@#…)",
-      },
-    ];
-
-    const failedRule = passwordRules.find((r) => !r.test);
-    if (failedRule) {
-      toast.error(`Password must contain ${failedRule.msg}`);
-      return false;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      toast.error("Passwords do not match");
-      return false;
-    }
-
+    // 3. Terms checkbox (not a schema field — just a UI gate)
     if (!agreed) {
       toast.error("You must agree to the terms and conditions");
       return false;
     }
 
+    setErrors({});
     return true;
   };
 
-  // ── Submit ──
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
@@ -207,13 +149,14 @@ export default function RegisterPage() {
     formData.append("phone", form.phone);
     formData.append("dob", form.dob);
     formData.append("password", form.password);
-    formData.append("file", form.file);
+    formData.append("uploadDL", file);
 
     const res = await dispatch(register(formData));
     if (!res.error) navigate("/");
   };
 
-  // ── Derived state ──
+  // ── Derived ────────────────────────────────────────────────────────────────
+
   const passwordsMatch =
     form.confirmPassword.length > 0 && form.password === form.confirmPassword;
   const passwordsMismatch =
@@ -240,123 +183,88 @@ export default function RegisterPage() {
         <div className="card p-8">
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {/* Full Name */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Full Name *
-              </label>
+            <Field label="Full Name" required error={errors.name}>
               <input
                 value={form.name}
                 onChange={set("name")}
-                className="input-field"
+                className={inputCls(errors.name)}
                 placeholder="Rahul Kumar"
-                required
                 autoComplete="name"
               />
-            </div>
+            </Field>
 
             {/* Email */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Email Address *
-              </label>
+            <Field label="Email Address" required error={errors.email}>
               <input
                 type="email"
                 value={form.email}
                 onChange={set("email")}
-                className="input-field"
+                className={inputCls(errors.email)}
                 placeholder="you@example.com"
-                required
                 autoComplete="email"
               />
-              {form.email && !EMAIL_REGEX.test(form.email) && (
-                <p className="text-xs text-red-500 mt-1">
-                  Enter a valid email address
-                </p>
-              )}
-            </div>
+            </Field>
 
             {/* Phone */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Phone Number
-              </label>
+            <Field label="Phone Number" error={errors.phone}>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={handlePhoneChange}
-                className="input-field"
+                className={inputCls(errors.phone)}
                 placeholder="10-digit mobile number"
                 maxLength={10}
                 autoComplete="tel"
                 inputMode="numeric"
               />
-              {form.phone && !PHONE_REGEX.test(form.phone) && (
-                <p className="text-xs text-red-500 mt-1">
-                  Phone number must be exactly 10 digits
-                </p>
-              )}
-            </div>
+            </Field>
 
             {/* Date of Birth */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Date of Birth *
-              </label>
+            <Field label="Date of Birth" required error={errors.dob}>
               <input
                 type="date"
                 value={form.dob}
                 onChange={set("dob")}
-                className="input-field"
+                className={inputCls(errors.dob)}
                 max={getMaxDOB()}
-                required
               />
-              {form.dob && !isAtLeast18(form.dob) && (
-                <p className="text-xs text-red-500 mt-1">
-                  You must be 18 years or older to register
-                </p>
-              )}
-            </div>
+            </Field>
 
-            {/* ID Upload */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Upload DL or State ID *
-              </label>
+            {/* Driver Licence Upload */}
+            <Field
+              label="Upload DL or State ID"
+              required
+              error={errors.uploadDL}
+            >
               <input
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
                 className="input-field"
-                required
               />
-              {form.file ? (
+              {file ? (
                 <p className="text-xs text-primary-600 mt-1">
-                  ✓ {form.file.name}{" "}
+                  ✓ {file.name}{" "}
                   <span className="text-gray-400">
-                    ({(form.file.size / 1024 / 1024).toFixed(2)} MB)
+                    ({(file.size / 1024 / 1024).toFixed(2)} MB)
                   </span>
                 </p>
               ) : (
                 <p className="text-xs text-gray-400 mt-1">
-                  Accepted: JPEG, PNG, WEBP, GIF, PDF — max {MAX_FILE_SIZE_MB}{" "}
-                  MB
+                  Accepted: JPEG, PNG, WEBP, PDF — max {MAX_FILE_SIZE_MB} MB
                 </p>
               )}
-            </div>
+            </Field>
 
             {/* Password */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Password *
-              </label>
+            <Field label="Password" required error={errors.password}>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
                   value={form.password}
                   onChange={set("password")}
-                  className="input-field pr-10"
+                  className={`${inputCls(errors.password)} pr-10`}
                   placeholder="Min. 8 chars, A–Z, a–z, 0–9, !@#…"
-                  required
                   autoComplete="new-password"
                 />
                 <button
@@ -369,7 +277,7 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              {/* Strength meter + per-rule checklist */}
+              {/* Strength meter + live checklist */}
               {form.password && (
                 <div className="mt-2">
                   <div className="flex gap-1 mb-1">
@@ -389,8 +297,6 @@ export default function RegisterPage() {
                       ? STRENGTH_LEVELS[Math.min(strength - 1, 3)].label
                       : ""}
                   </p>
-
-                  {/* Live checklist */}
                   <ul className="mt-1.5 space-y-0.5">
                     {[
                       {
@@ -410,7 +316,7 @@ export default function RegisterPage() {
                         label: "1 number (0–9)",
                       },
                       {
-                        test: /[~`!@#$%^&*();:'"?,.]/.test(form.password),
+                        test: /[^A-Za-z0-9]/.test(form.password),
                         label: "1 special character",
                       },
                     ].map(({ test, label }) => (
@@ -420,28 +326,27 @@ export default function RegisterPage() {
                           test ? "text-primary-600" : "text-gray-400"
                         }`}
                       >
-                        <span>{test ? "✓" : "○"}</span>
-                        {label}
+                        <span>{test ? "✓" : "○"}</span> {label}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
-            </div>
+            </Field>
 
             {/* Confirm Password */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Confirm Password *
-              </label>
+            <Field
+              label="Confirm Password"
+              required
+              error={errors.confirmPassword}
+            >
               <div className="relative">
                 <input
                   type={showConfirmPass ? "text" : "password"}
                   value={form.confirmPassword}
                   onChange={set("confirmPassword")}
-                  className="input-field pr-10"
+                  className={`${inputCls(errors.confirmPassword)} pr-10`}
                   placeholder="Re-enter password"
-                  required
                   autoComplete="new-password"
                 />
                 {passwordsMatch ? (
@@ -459,12 +364,13 @@ export default function RegisterPage() {
                   </button>
                 )}
               </div>
-              {passwordsMismatch && (
+              {/* inline mismatch hint (before submit) */}
+              {passwordsMismatch && !errors.confirmPassword && (
                 <p className="text-xs text-red-500 mt-1">
                   Passwords do not match
                 </p>
               )}
-            </div>
+            </Field>
 
             {/* Terms checkbox */}
             <label className="flex items-start gap-2.5 cursor-pointer">
@@ -517,6 +423,25 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Tiny shared helpers ──────────────────────────────────────────────────────
+
+/** Red border when there's an error, normal otherwise */
+const inputCls = (err) =>
+  `input-field ${err ? "border-red-400 focus:ring-red-300 focus:border-red-400" : ""}`;
+
+/** Label + input slot + inline error message */
+function Field({ label, required, error, children }) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }

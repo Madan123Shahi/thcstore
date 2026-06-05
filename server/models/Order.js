@@ -28,14 +28,19 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["razorpay", "cod", "upi"],
+      enum: ["stripe", "cod"],
       default: "cod",
     },
+    paymentIntentId: {
+      type: String,
+      unique: true,
+      sparse: true, // ✅ allows multiple null values for COD orders
+    },
     paymentResult: {
-      id: String,
       status: String,
+      amount: Number,
+      currency: String,
       update_time: String,
-      razorpay_order_id: String,
     },
     itemsPrice: { type: Number, required: true },
     shippingPrice: { type: Number, default: 0 },
@@ -65,6 +70,23 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// ─────────────────────────────────────────────
+// ✅ Indexes
+// ─────────────────────────────────────────────
+
+// 1. Compound index — speeds up "My Orders" query (most common user query)
+//    e.g. Order.find({ user }).sort({ createdAt: -1 })
+orderSchema.index({ user: 1, createdAt: -1 });
+
+// 2. Order status index — speeds up admin filtering by status
+orderSchema.index({ orderStatus: 1 });
+
+// 3. Payment intent index — speeds up webhook & verify lookups
+orderSchema.index({ paymentIntentId: 1 });
+
+// ─────────────────────────────────────────────
+// Hooks
+// ─────────────────────────────────────────────
 orderSchema.pre("save", function (next) {
   if (!this.orderNumber) {
     this.orderNumber = "THC" + Date.now() + Math.floor(Math.random() * 1000);

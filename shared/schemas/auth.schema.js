@@ -144,6 +144,11 @@ export const changePasswordSchema = z
 
 export const addAddressSchema = z.object({
   label: z.enum(["home", "work", "other"]).default("home"),
+  name: z
+    .string({ required_error: "Name is required" })
+    .trim()
+    .min(2, "Name is too short")
+    .max(100),
   line1: z
     .string({ required_error: "Address line 1 is required" })
     .trim()
@@ -159,6 +164,9 @@ export const addAddressSchema = z.object({
   pincode: z
     .string({ required_error: "Pincode is required" })
     .regex(/^\d{6}$/, "Enter a valid 6-digit Indian pincode"),
+  phone: z
+    .string({ required_error: "Phone is required" })
+    .regex(/^\d{10}$/, "Enter a valid 10-digit phone number"),
   isDefault: z.boolean().default(false),
 });
 

@@ -1,7 +1,7 @@
 import express from "express";
 const router = express.Router();
 import { protect } from "../middleware/auth.js";
-import upload from "../middleware/upload.js";
+import { uploadDL } from "../middleware/upload.js";
 import { validate } from "../middleware/validate.js";
 import {
   register,
@@ -21,14 +21,10 @@ import {
   changePasswordSchema,
   addAddressSchema,
 } from "../../shared/schemas/auth.schema.js";
+import { parseFormData } from "../middleware/parseFormData.js";
 
 // Public routes
-router.post(
-  "/register",
-  upload.single("uploadDL"), // 1. parse the file first
-  validate(registerBodySchema), // 2. then validate body fields
-  register,
-);
+router.post("/register", uploadDL, validate(registerBodySchema), register);
 
 router.post("/login", validate(loginSchema), login);
 

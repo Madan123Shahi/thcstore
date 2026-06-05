@@ -22,7 +22,18 @@ const productSchema = new mongoose.Schema(
     },
     description: { type: String, required: true },
     shortDescription: String,
-    images: [{ url: String, alt: String }],
+
+    // ✅ Updated image schema — stores thumbnail, medium, large for responsive use
+    images: [
+      {
+        url: String, // original Cloudinary URL
+        thumbnail: String, // 100x100
+        medium: String, // 400x400
+        large: String, // 800x800
+        alt: String,
+      },
+    ],
+
     price: { type: Number, required: true, min: 0 },
     mrp: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0 },
@@ -49,27 +60,33 @@ const productSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Auto-compute discount
+// ─────────────────────────────────────────────
+// ✅ Indexes
+// ─────────────────────────────────────────────
+productSchema.index({ category: 1, price: 1 });
+productSchema.index({ slug: 1 }, { unique: true });
+productSchema.index({ name: 1, brand: 1 });
+productSchema.index({ isActive: 1, isFeatured: 1 });
+productSchema.index({ isActive: 1, isBestSeller: 1 });
+productSchema.index({ isActive: 1, isNewArrival: 1 });
+
+// ─────────────────────────────────────────────
+// Hooks
+// ─────────────────────────────────────────────
 productSchema.pre("save", async function (next) {
   try {
-    // Auto-compute discount
-    if (this.mrp > 0 && this.price < this.mrp) {
+    if (this.mrp > 0 && this.price < this.mrp)
       this.discount = Math.round(((this.mrp - this.price) / this.mrp) * 100);
-    }
 
-    // Auto-generate slug
-    if (!this.slug) {
+    if (!this.slug)
       this.slug = this.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
-    }
 
-    // Auto-generate SKU
     if (!this.sku) {
       const Category = mongoose.model("Category");
       const category = await Category.findById(this.category);
-
       const prefixMap = {
         "cbd-oils": "CBDO",
         "thc-gummies": "THCG",
@@ -80,16 +97,12 @@ productSchema.pre("save", async function (next) {
         capsules: "CAPS",
         topicals: "TOPO",
       };
-
       const prefix = prefixMap[category?.slug] || "PROD";
-
-      const count = await mongoose.model("Product").countDocuments({
-        category: this.category,
-      });
-
+      const count = await mongoose
+        .model("Product")
+        .countDocuments({ category: this.category });
       this.sku = `${prefix}-${String(count + 1).padStart(4, "0")}`;
     }
-
     next();
   } catch (error) {
     next(error);

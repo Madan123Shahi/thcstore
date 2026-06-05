@@ -1,6 +1,6 @@
-import asyncHandler from "express-async-handler";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { asyncHandler, AppError } from "../utils/appError.js"; // ✅ your custom utils
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -10,9 +10,9 @@ const signToken = (id) =>
 // Helper to set the cookie and respond
 const sendTokenCookie = (res, statusCode, user, token) => {
   res.cookie("token", token, {
-    httpOnly: true, // JS cannot access this cookie
-    secure: process.env.NODE_ENV === "production", // HTTPS only in prod
-    sameSite: "strict", // CSRF protection
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in ms
   });
 
@@ -31,23 +31,20 @@ export const register = asyncHandler(async (req, res) => {
   const uploadDL = req.file;
 
   if (!name || !email || !password || !phone || !dob || !uploadDL)
-    return res.status(400).json({
-      error:
-        "Name, email, password, phone number, date of birth and driver license are required",
-    });
+    throw new AppError(
+      "Name, email, password, phone number, date of birth and driver license are required",
+      400,
+    );
 
-  // Check existing user by email OR phone
-  const exists = await User.findOne({
-    $or: [{ email }, { phone }],
-  });
+  const exists = await User.findOne({ $or: [{ email }, { phone }] });
 
   if (exists) {
-    return res.status(400).json({
-      error:
-        exists.email === email
-          ? "Email already registered"
-          : "Phone number already registered",
-    });
+    throw new AppError(
+      exists.email === email
+        ? "Email already registered"
+        : "Phone number already registered",
+      400,
+    );
   }
 
   const user = await User.create({
@@ -56,45 +53,33 @@ export const register = asyncHandler(async (req, res) => {
     password,
     phone,
     dob,
-    uploadDL: uploadDL.path,
+    uploadDL: uploadDL.path, // ✅ Cloudinary URL
   });
 
   const token = signToken(user._id);
-
   sendTokenCookie(res, 201, user, token);
 });
 
 export const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
 
-  if (!emailOrPhone || !password) {
-    return res.status(400).json({
-      error: "Email/Phone and password are required",
-    });
-  }
+  if (!emailOrPhone || !password)
+    throw new AppError("Email/Phone and password are required", 400);
 
-  // Find user by email OR phone
+  // ✅ Type check to nullify NoSQL injection
+  if (typeof emailOrPhone !== "string" || typeof password !== "string")
+    throw new AppError("Invalid input", 400);
+
   const user = await User.findOne({
     $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
   }).select("+password");
 
-  if (!user) {
-    return res.status(401).json({
-      error: "Invalid credentials",
-    });
-  }
+  if (!user) throw new AppError("Invalid credentials", 401);
 
-  // Compare password
   const isMatch = await user.matchPassword(password);
-
-  if (!isMatch) {
-    return res.status(401).json({
-      error: "Invalid credentials",
-    });
-  }
+  if (!isMatch) throw new AppError("Invalid credentials", 401);
 
   const token = signToken(user._id);
-
   sendTokenCookie(res, 200, user, token);
 });
 
@@ -103,45 +88,76 @@ export const getMe = asyncHandler(async (req, res) => {
     "wishlist",
     "name images price",
   );
+  if (!user) throw new AppError("User not found", 404);
   res.json(user);
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const { name, phone, dateOfBirth } = req.body;
+
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { name, phone, dateOfBirth },
     { new: true, runValidators: true },
   );
+
+  if (!user) throw new AppError("User not found", 404);
   res.json(user);
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
+
   const user = await User.findById(req.user._id).select("+password");
+  if (!user) throw new AppError("User not found", 404);
+
   if (!(await user.matchPassword(currentPassword)))
-    return res.status(400).json({ error: "Current password incorrect" });
+    throw new AppError("Current password incorrect", 400);
+
   user.password = newPassword;
   await user.save();
   res.json({ message: "Password updated successfully" });
 });
 
 export const addAddress = asyncHandler(async (req, res) => {
+  const { label, name, line1, line2, city, state, pincode, phone, isDefault } =
+    req.body;
+
   const user = await User.findById(req.user._id);
-  if (req.body.isDefault) {
+  if (!user) throw new AppError("User not found", 404);
+
+  // ✅ Reset other defaults if this is the new default
+  if (isDefault) {
     user.addresses.forEach((a) => (a.isDefault = false));
   }
-  user.addresses.push(req.body);
+
+  // ✅ Only explicitly named fields pushed — injection safe
+  user.addresses.push({
+    label,
+    name,
+    line1,
+    line2,
+    city,
+    state,
+    pincode,
+    phone,
+    isDefault,
+  });
+
   await user.save();
-  res.json(user.addresses);
+  res.status(201).json({ addresses: user.addresses });
 });
 
 export const toggleWishlist = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
+  if (!user) throw new AppError("User not found", 404);
+
   const pid = req.params.productId;
   const idx = user.wishlist.findIndex((id) => id.toString() === pid);
+
   if (idx > -1) user.wishlist.splice(idx, 1);
   else user.wishlist.push(pid);
+
   await user.save();
   res.json({ wishlist: user.wishlist });
 });
@@ -149,7 +165,7 @@ export const toggleWishlist = asyncHandler(async (req, res) => {
 export const logout = asyncHandler(async (req, res) => {
   res.cookie("token", "", {
     httpOnly: true,
-    expires: new Date(0), // immediately expire the cookie
+    expires: new Date(0),
   });
   res.json({ message: "Logged out successfully" });
 });

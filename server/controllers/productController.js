@@ -1,16 +1,16 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
-
 import { AppError, asyncHandler } from "../utils/appError.js";
+import { getResponsiveUrls } from "../middleware/upload.js"; // ✅ responsive URL helper
 
 /**
  * Get Products
  */
-export const getProducts = asyncHandler(async (req, res, next) => {
+export const getProducts = asyncHandler(async (req, res) => {
   const {
-    page = 1,
-    limit = 12,
-    sort = "-createdAt",
+    page,
+    limit,
+    sort,
     category,
     search,
     minPrice,
@@ -24,244 +24,238 @@ export const getProducts = asyncHandler(async (req, res, next) => {
 
   const query = { isActive: true };
 
-  // Category filter
   if (category) {
     const categoryDoc = await Category.findOne({ slug: category });
-
-    if (!categoryDoc) {
-      return next(new AppError("Category not found", 404));
-    }
-
+    if (!categoryDoc) throw new AppError("Category not found", 404);
     query.category = categoryDoc._id;
   }
 
-  // Brand filter
   if (brand) {
-    query.brand = new RegExp(brand, "i");
+    const escapedBrand = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.brand = new RegExp(escapedBrand, "i");
   }
 
-  // Prescription filter
-  if (requiresPrescription !== undefined) {
+  if (requiresPrescription !== undefined)
     query.requiresPrescription = requiresPrescription === "true";
-  }
 
-  // Flags
   if (isFeatured) query.isFeatured = true;
   if (isBestSeller) query.isBestSeller = true;
   if (isNewArrival) query.isNewArrival = true;
 
-  // Price filter
   if (minPrice || maxPrice) {
     query.price = {};
-
-    if (minPrice) query.price.$gte = Number(minPrice);
-    if (maxPrice) query.price.$lte = Number(maxPrice);
+    if (minPrice) query.price.$gte = minPrice;
+    if (maxPrice) query.price.$lte = maxPrice;
   }
 
-  // Search
   if (search) {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.$or = [
-      { name: new RegExp(search, "i") },
-      { brand: new RegExp(search, "i") },
-      { tags: new RegExp(search, "i") },
+      { name: new RegExp(escapedSearch, "i") },
+      { brand: new RegExp(escapedSearch, "i") },
+      { tags: new RegExp(escapedSearch, "i") },
     ];
   }
 
   const total = await Product.countDocuments(query);
-
   const products = await Product.find(query)
     .populate("category", "name slug")
     .sort(sort)
     .skip((page - 1) * limit)
-    .limit(Number(limit))
+    .limit(limit)
     .select("-reviews");
 
   res.status(200).json({
     success: true,
     products,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
-      pages: Math.ceil(total / limit),
-    },
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 });
 
 /**
  * Get Single Product
  */
-export const getProduct = asyncHandler(async (req, res, next) => {
+export const getProduct = asyncHandler(async (req, res) => {
   const product = await Product.findOne({
     $or: [
       { slug: req.params.id },
-      {
-        _id: req.params.id.match(/^[a-f\d]{24}$/i) ? req.params.id : null,
-      },
+      { _id: req.params.id.match(/^[a-f\d]{24}$/i) ? req.params.id : null },
     ],
     isActive: true,
   }).populate("category", "name slug");
 
-  if (!product) {
-    return next(new AppError("Product not found", 404));
-  }
-
-  res.status(200).json({
-    success: true,
-    product,
-  });
+  if (!product) throw new AppError("Product not found", 404);
+  res.status(200).json({ success: true, product });
 });
 
 /**
  * Create Product
  */
-// export const createProduct = asyncHandler(async (req, res, next) => {
-//   // FormData sends JSON as string
-//   const body = req.body.data ? JSON.parse(req.body.data) : req.body;
+export const createProduct = asyncHandler(async (req, res) => {
+  const {
+    name,
+    description,
+    price,
+    stock,
+    category,
+    brand,
+    tags,
+    requiresPrescription,
+    isFeatured,
+    isBestSeller,
+    isNewArrival,
+  } = req.body;
 
-//   const files = req.files;
+  const existingProduct = await Product.findOne({ name });
+  if (existingProduct) throw new AppError("Product already exists", 400);
 
-//   const product = await Product.create({
-//     ...body,
-//   });
-
-//   res.status(201).json({
-//     success: true,
-//     product,
-//   });
-// });
-
-export const createProduct = asyncHandler(async (req, res, next) => {
-  const body = req.body.data ? JSON.parse(req.body.data) : req.body;
-
-  const existingProduct = await Product.findOne({ name: body.name });
-  if (existingProduct) {
-    return next(new AppError("A product with this name already exists", 400));
-  }
-
-  // ✅ Build absolute URLs from uploaded files
-  const uploadedImages = (req.files || []).map((file) => ({
-    url: `${req.protocol}://${req.get("host")}/uploads/${file.filename}`,
-    alt: "",
-  }));
-
-  const product = await Product.create({
-    ...body,
-    images: uploadedImages, // ✅ use uploaded images, not body.images
+  // ✅ Store thumbnail, medium, large URLs for each uploaded image
+  const uploadedImages = (req.files || []).map((file) => {
+    const publicId = file.filename; // Cloudinary public_id set by multer-storage-cloudinary
+    const urls = getResponsiveUrls(publicId);
+    return {
+      url: file.path, // ✅ original Cloudinary URL
+      thumbnail: urls.thumbnail, // ✅ 100x100
+      medium: urls.medium, // ✅ 400x400
+      large: urls.large, // ✅ 800x800
+      alt: name,
+    };
   });
 
-  res
-    .status(201)
-    .json({ success: true, message: "Product created successfully", product });
+  const product = await Product.create({
+    name,
+    description,
+    price,
+    stock,
+    category,
+    brand,
+    tags,
+    requiresPrescription,
+    isFeatured,
+    isBestSeller,
+    isNewArrival,
+    images: uploadedImages,
+  });
+
+  res.status(201).json({ success: true, message: "Product created", product });
 });
 
-export const updateProduct = asyncHandler(async (req, res, next) => {
-  const body = req.body.data ? JSON.parse(req.body.data) : req.body;
+/**
+ * Update Product
+ */
+export const updateProduct = asyncHandler(async (req, res) => {
+  const {
+    name,
+    description,
+    price,
+    stock,
+    category,
+    brand,
+    tags,
+    requiresPrescription,
+    isFeatured,
+    isBestSeller,
+    isNewArrival,
+    existingImages,
+  } = req.body;
 
-  if (body.name) {
+  if (name) {
     const existing = await Product.findOne({
-      name: body.name,
+      name,
       _id: { $ne: req.params.id },
     });
-    if (existing)
-      return next(new AppError("A product with this name already exists", 400));
+    if (existing) throw new AppError("Product name already exists", 400);
   }
 
-  // Keep existing images + append newly uploaded ones
-  const uploadedImages = (req.files || []).map((file) => ({
-    url: `${req.protocol}://${req.get("host")}/uploads/products/${file.filename}`,
-    alt: "",
-  }));
+  // ✅ Store responsive URLs for newly uploaded images
+  const uploadedImages = (req.files || []).map((file) => {
+    const publicId = file.filename;
+    const urls = getResponsiveUrls(publicId);
+    return {
+      url: file.path,
+      thumbnail: urls.thumbnail,
+      medium: urls.medium,
+      large: urls.large,
+      alt: name || "",
+    };
+  });
 
-  const existingImages = body.existingImages || [];
-  const images = [...existingImages, ...uploadedImages]; // ✅ merge both
+  const images = [...(existingImages || []), ...uploadedImages];
 
   const product = await Product.findByIdAndUpdate(
     req.params.id,
-    { ...body, images },
+    {
+      name,
+      description,
+      price,
+      stock,
+      category,
+      brand,
+      tags,
+      requiresPrescription,
+      isFeatured,
+      isBestSeller,
+      isNewArrival,
+      images,
+    },
     { new: true, runValidators: true },
   );
 
-  if (!product) return next(new AppError("Product not found", 404));
-
+  if (!product) throw new AppError("Product not found", 404);
   res.status(200).json({ success: true, product });
 });
 
 /**
  * Delete Product (Soft Delete)
  */
-export const deleteProduct = asyncHandler(async (req, res, next) => {
+export const deleteProduct = asyncHandler(async (req, res) => {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     { isActive: false },
     { new: true },
   );
 
-  if (!product) {
-    return next(new AppError("Product not found", 404));
-  }
-
-  res.status(200).json({
-    success: true,
-    message: "Product removed",
-  });
+  if (!product) throw new AppError("Product not found", 404);
+  res.status(200).json({ success: true, message: "Product removed" });
 });
 
 /**
  * Featured Products
  */
 export const getFeatured = asyncHandler(async (req, res) => {
-  const products = await Product.find({
-    isFeatured: true,
-    isActive: true,
-  })
+  const products = await Product.find({ isFeatured: true, isActive: true })
     .populate("category", "name slug")
     .limit(8)
     .select("-reviews");
 
-  res.status(200).json({
-    success: true,
-    products,
-  });
+  res.status(200).json({ success: true, products });
 });
 
 /**
  * Best Sellers
  */
 export const getBestSellers = asyncHandler(async (req, res) => {
-  const products = await Product.find({
-    isBestSeller: true,
-    isActive: true,
-  })
+  const products = await Product.find({ isBestSeller: true, isActive: true })
     .populate("category", "name slug")
     .limit(8)
     .select("-reviews");
 
-  res.status(200).json({
-    success: true,
-    products,
-  });
+  res.status(200).json({ success: true, products });
 });
 
 /**
  * Add Review
  */
-export const addReview = asyncHandler(async (req, res, next) => {
+export const addReview = asyncHandler(async (req, res) => {
   const { rating, comment } = req.body;
 
   const product = await Product.findById(req.params.id);
-
-  if (!product) {
-    return next(new AppError("Product not found", 404));
-  }
+  if (!product) throw new AppError("Product not found", 404);
 
   const alreadyReviewed = product.reviews.find(
     (r) => r.user.toString() === req.user._id.toString(),
   );
-
-  if (alreadyReviewed) {
-    return next(new AppError("Already reviewed", 400));
-  }
+  if (alreadyReviewed) throw new AppError("Already reviewed", 400);
 
   product.reviews.push({
     user: req.user._id,
@@ -271,15 +265,10 @@ export const addReview = asyncHandler(async (req, res, next) => {
   });
 
   product.numReviews = product.reviews.length;
-
   product.rating =
     product.reviews.reduce((acc, item) => acc + item.rating, 0) /
     product.numReviews;
 
   await product.save();
-
-  res.status(201).json({
-    success: true,
-    message: "Review added",
-  });
+  res.status(201).json({ success: true, message: "Review added" });
 });

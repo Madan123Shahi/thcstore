@@ -12,11 +12,14 @@ import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
 connectDB();
 
 const app = express();
+
+app.use("/api/payments", paymentRoutes);
 
 // Security
 app.use(

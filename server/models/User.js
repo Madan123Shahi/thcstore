@@ -2,11 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 const addressSchema = new mongoose.Schema({
-  label: {
-    type: String,
-    enum: ["home", "work", "other"],
-    default: "home",
-  },
+  label: { type: String, enum: ["home", "work", "other"], default: "home" },
   name: { type: String, required: true, trim: true },
   phone: { type: String, required: true, trim: true },
   line1: { type: String, required: true, trim: true },
@@ -23,14 +19,14 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: true, // ✅ already creates an index
+      unique: true, // ✅ this already creates the index — no schema.index() needed
       lowercase: true,
       trim: true,
     },
     phone: {
       type: String,
       trim: true,
-      unique: true,
+      unique: true, // ✅ this already creates the index — no schema.index() needed
       required: [true, "Phone Number is required"],
     },
     uploadDL: {
@@ -50,21 +46,13 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     prescriptionUploaded: { type: Boolean, default: false },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+    fcmTokens: [{ type: String }],
   },
   { timestamps: true },
 );
 
-// ─────────────────────────────────────────────
-// ✅ Indexes
-// email unique index is auto-created by `unique: true` above
-// Explicitly defining it ensures it exists and is documented
-// ─────────────────────────────────────────────
-userSchema.index({ email: 1 }, { unique: true }); // ✅ fast login lookup by email
-userSchema.index({ phone: 1 }, { unique: true }); // ✅ fast login lookup by phone
+// ✅ No schema.index() for email/phone — unique:true above already handles it
 
-// ─────────────────────────────────────────────
-// Hooks
-// ─────────────────────────────────────────────
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);

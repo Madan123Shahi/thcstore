@@ -15,7 +15,7 @@ const orderItemSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    orderNumber: { type: String, unique: true },
+    orderNumber: { type: String, unique: true }, // ✅ unique:true already creates index
     items: [orderItemSchema],
     shippingAddress: {
       name: String,
@@ -33,8 +33,8 @@ const orderSchema = new mongoose.Schema(
     },
     paymentIntentId: {
       type: String,
-      unique: true,
-      sparse: true, // ✅ allows multiple null values for COD orders
+      unique: true, // ✅ unique:true already creates index
+      sparse: true, // ✅ allows multiple nulls for COD orders
     },
     paymentResult: {
       status: String,
@@ -71,26 +71,15 @@ const orderSchema = new mongoose.Schema(
 );
 
 // ─────────────────────────────────────────────
-// ✅ Indexes
+// ✅ Only non-unique compound indexes here
+// orderNumber and paymentIntentId already indexed via unique:true above
 // ─────────────────────────────────────────────
+orderSchema.index({ user: 1, createdAt: -1 }); // "My Orders" query
+orderSchema.index({ orderStatus: 1 }); // admin filter by status
 
-// 1. Compound index — speeds up "My Orders" query (most common user query)
-//    e.g. Order.find({ user }).sort({ createdAt: -1 })
-orderSchema.index({ user: 1, createdAt: -1 });
-
-// 2. Order status index — speeds up admin filtering by status
-orderSchema.index({ orderStatus: 1 });
-
-// 3. Payment intent index — speeds up webhook & verify lookups
-orderSchema.index({ paymentIntentId: 1 });
-
-// ─────────────────────────────────────────────
-// Hooks
-// ─────────────────────────────────────────────
 orderSchema.pre("save", function (next) {
-  if (!this.orderNumber) {
+  if (!this.orderNumber)
     this.orderNumber = "THC" + Date.now() + Math.floor(Math.random() * 1000);
-  }
   next();
 });
 

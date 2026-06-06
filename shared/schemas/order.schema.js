@@ -20,17 +20,25 @@ export const createOrderSchema = z.object({
     pincode: z.string().regex(/^\d{6}$/, "Invalid pincode"),
   }),
 
-  paymentMethod: z.enum(["razorpay", "cod", "upi"]),
+  // ✅ Updated — removed razorpay/upi, added stripe
+  paymentMethod: z.enum(["stripe", "cod"]),
+
+  // ✅ Added — required for Stripe orders
+  paymentIntentId: z.string().optional(),
+
   notes: z.string().max(500).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
+  // ✅ Added "confirmed" and "refunded" to match your Order model enum
   status: z.enum([
     "pending",
+    "confirmed",
     "processing",
     "shipped",
     "delivered",
     "cancelled",
+    "refunded",
   ]),
   trackingNumber: z.string().optional(),
 });
@@ -38,7 +46,16 @@ export const updateOrderStatusSchema = z.object({
 export const getAllOrdersSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  // ✅ Added "confirmed" and "refunded" to match your Order model enum
   status: z
-    .enum(["pending", "processing", "shipped", "delivered", "cancelled"])
+    .enum([
+      "pending",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+      "refunded",
+    ])
     .optional(),
 });

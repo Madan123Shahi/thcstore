@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +11,7 @@ import { useDispatch } from "react-redux";
 import { fetchMe } from "./store/slices/authSlice";
 import { useAuth } from "./hooks";
 
+// ─── Customer routes — in main bundle (load immediately) ─────────────────────
 import Layout from "./components/layout/Layout";
 import HomePage from "./pages/HomePage";
 import ProductsPage from "./pages/ProductsPage";
@@ -24,25 +25,26 @@ import ProfilePage from "./pages/ProfilePage";
 import WishlistPage from "./pages/WishlistPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminOrders from "./pages/admin/AdminOrders";
-import AdminProductForm from "./pages/admin/AdminProductForm";
 import NotFoundPage from "./pages/NotFoundPage";
 import Loader from "./components/common/Loader";
 
-// ─── Scroll To Top ───────────────────────────────────────────────
+// ─── Admin routes — lazy loaded (separate chunk, not in customer bundle) ──────
+// ✅ Customers never download admin code — faster initial load
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
+const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminProductForm = lazy(() => import("./pages/admin/AdminProductForm"));
+
+// ─── Scroll To Top ────────────────────────────────────────────────────────────
 function ScrollToTop() {
   const { pathname } = useLocation();
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-  }); // ✅ no dependency array = fires on every render (mount + every route change)
-
+  }); // no dep array = fires on every route change
   return null;
 }
 
-// ─── Route Guards ───────────────────────────────────────────────
+// ─── Route Guards ─────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const { isLoggedIn, fetchMeLoading } = useAuth();
   if (fetchMeLoading) return null;
@@ -63,7 +65,7 @@ const GuestRoute = ({ children }) => {
   return isLoggedIn ? <Navigate to="/" replace /> : children;
 };
 
-// ─── App ────────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const dispatch = useDispatch();
   const { fetchMeLoading } = useAuth();
@@ -74,7 +76,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <ScrollToTop /> {/* ✅ always mounted inside BrowserRouter */}
+      <ScrollToTop />
       <Toaster
         position="top-right"
         toastOptions={{
@@ -88,12 +90,14 @@ export default function App() {
       ) : (
         <Routes>
           <Route path="/" element={<Layout />}>
+            {/* ── Public routes ── */}
             <Route index element={<HomePage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:slug" element={<ProductDetailPage />} />
             <Route path="cart" element={<CartPage />} />
             <Route path="wishlist" element={<WishlistPage />} />
 
+            {/* ── Guest only ── */}
             <Route
               path="/login"
               element={
@@ -111,6 +115,7 @@ export default function App() {
               }
             />
 
+            {/* ── Protected ── */}
             <Route
               path="checkout"
               element={
@@ -152,11 +157,15 @@ export default function App() {
               }
             />
 
+            {/* ── Admin routes — lazy loaded in Suspense ── */}
+            {/* ✅ Suspense shows Loader while admin JS chunk downloads */}
             <Route
               path="admin"
               element={
                 <AdminRoute>
-                  <AdminDashboard />
+                  <Suspense fallback={<Loader />}>
+                    <AdminDashboard />
+                  </Suspense>
                 </AdminRoute>
               }
             />
@@ -164,7 +173,9 @@ export default function App() {
               path="admin/products"
               element={
                 <AdminRoute>
-                  <AdminProducts />
+                  <Suspense fallback={<Loader />}>
+                    <AdminProducts />
+                  </Suspense>
                 </AdminRoute>
               }
             />
@@ -172,7 +183,9 @@ export default function App() {
               path="admin/products/new"
               element={
                 <AdminRoute>
-                  <AdminProductForm />
+                  <Suspense fallback={<Loader />}>
+                    <AdminProductForm />
+                  </Suspense>
                 </AdminRoute>
               }
             />
@@ -180,7 +193,9 @@ export default function App() {
               path="admin/products/:id/edit"
               element={
                 <AdminRoute>
-                  <AdminProductForm />
+                  <Suspense fallback={<Loader />}>
+                    <AdminProductForm />
+                  </Suspense>
                 </AdminRoute>
               }
             />
@@ -188,7 +203,9 @@ export default function App() {
               path="admin/orders"
               element={
                 <AdminRoute>
-                  <AdminOrders />
+                  <Suspense fallback={<Loader />}>
+                    <AdminOrders />
+                  </Suspense>
                 </AdminRoute>
               }
             />

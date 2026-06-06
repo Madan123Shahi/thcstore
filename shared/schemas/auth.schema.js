@@ -1,206 +1,78 @@
-/**
- * shared/schemas/auth.schemas.js
- *
- * Single source of truth for ALL auth validation rules.
- * Import this on BOTH the backend (Express middleware) and
- * frontend (zodResolver for React Hook Form).
- *
- * Usage:
- *   Backend  → import { registerSchema } from '../../shared/schemas/auth.schemas.js'
- *   Frontend → import { registerSchema } from '../../../shared/schemas/auth.schemas.js'
- */
-
 import { z } from "zod";
 
-// ─── Reusable field primitives ────────────────────────────────────────────────
-
-const nameField = z
-  .string({ required_error: "Name is required" })
-  .trim()
-  .min(2, "Name must be at least 2 characters")
-  .max(60, "Name must be less than 60 characters")
-  .regex(
-    /^[a-zA-Z\s'-]+$/,
-    "Name can only contain letters, spaces, hyphens and apostrophes",
-  );
-
-const emailField = z
-  .string({ required_error: "Email is required" })
-  .trim()
-  .toLowerCase()
-  .email("Enter a valid email address")
-  .max(254, "Email address is too long");
-
-const passwordField = z
-  .string({ required_error: "Password is required" })
-  .min(8, "Password must be at least 8 characters")
-  .max(72, "Password must be less than 72 characters") // bcrypt limit
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(
-    /[^A-Za-z0-9]/,
-    "Password must contain at least one special character",
-  );
-
-// Indian mobile: 10 digits, starting with 6-9
-const phoneField = z
-  .string({ required_error: "Phone number is required" })
-  .trim()
-  .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number");
-
-// Must be 18+ years old, not more than 100 years ago
-const dobField = z
-  .string({ required_error: "Date of birth is required" })
-  .refine((val) => {
-    const dob = new Date(val);
-    if (isNaN(dob.getTime())) return false;
-    const today = new Date();
-    const age = today.getFullYear() - dob.getFullYear();
-    const hadBirthday =
-      today.getMonth() > dob.getMonth() ||
-      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
-    const actualAge = hadBirthday ? age : age - 1;
-    return actualAge >= 18 && actualAge <= 100;
-  }, "You must be at least 18 years old");
-
-// ─── Register ─────────────────────────────────────────────────────────────────
-
-export const registerSchema = z
-  .object({
-    name: nameField,
-    email: emailField,
-    password: passwordField,
-    confirmPassword: z.string({
-      required_error: "Please confirm your password",
-    }),
-    phone: phoneField,
-    dob: dobField,
-    // uploadDL is a file — validated separately on backend (multer) and frontend (File object)
-    // We expose a helper below for frontend File validation
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-// Backend-only: strip confirmPassword before hitting the DB
-export const registerBodySchema = registerSchema.transform(
-  ({ confirmPassword, ...rest }) => rest,
-);
-
-// ─── Login ────────────────────────────────────────────────────────────────────
+export const registerSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
+  email: z.string().trim().toLowerCase().email("Invalid email format"),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .regex(/[a-zA-Z]/, "Password must contain at least one letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  phone: z
+    .string()
+    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian phone number"),
+  dob: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), "Invalid date of birth")
+    .refine((val) => {
+      const age = (Date.now() - new Date(val)) / (1000 * 60 * 60 * 24 * 365);
+      return age >= 18;
+    }, "You must be at least 18 years old"),
+});
 
 export const loginSchema = z.object({
-  emailOrPhone: z
-    .string({ required_error: "Email or phone is required" })
-    .trim()
-    .min(1, "Email or phone is required")
-    .refine(
-      (val) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || // email
-        /^[6-9]\d{9}$/.test(val), // Indian mobile
-      "Enter a valid email address or 10-digit phone number",
-    ),
-  password: z
-    .string({ required_error: "Password is required" })
-    .min(1, "Password is required"),
+  emailOrPhone: z.string().trim().min(1, "Email or phone is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
-// ─── Update Profile ───────────────────────────────────────────────────────────
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .regex(/[a-zA-Z]/, "Password must contain at least one letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+});
 
-export const updateProfileSchema = z
-  .object({
-    name: nameField.optional(),
-    phone: phoneField.optional(),
-    dateOfBirth: dobField.optional(),
-  })
-  .refine((data) => Object.values(data).some((v) => v !== undefined), {
-    message: "Provide at least one field to update",
-  });
-
-// ─── Change Password ──────────────────────────────────────────────────────────
-
-export const changePasswordSchema = z
-  .object({
-    currentPassword: z
-      .string({ required_error: "Current password is required" })
-      .min(1, "Current password is required"),
-    newPassword: passwordField,
-    confirmPassword: z.string({
-      required_error: "Please confirm your new password",
-    }),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  })
-  .refine((data) => data.currentPassword !== data.newPassword, {
-    message: "New password must be different from current password",
-    path: ["newPassword"],
-  });
-
-// ─── Add Address ──────────────────────────────────────────────────────────────
-
-export const addAddressSchema = z.object({
-  label: z.enum(["home", "work", "other"]).default("home"),
-  name: z
-    .string({ required_error: "Name is required" })
-    .trim()
-    .min(2, "Name is too short")
-    .max(100),
-  line1: z
-    .string({ required_error: "Address line 1 is required" })
-    .trim()
-    .min(5, "Address is too short")
-    .max(200),
-  line2: z.string().trim().max(200).optional(),
-  city: z.string({ required_error: "City is required" }).trim().min(2).max(100),
-  state: z
-    .string({ required_error: "State is required" })
-    .trim()
-    .min(2)
-    .max(100),
-  pincode: z
-    .string({ required_error: "Pincode is required" })
-    .regex(/^\d{6}$/, "Enter a valid 6-digit Indian pincode"),
+// ✅ Base schema WITHOUT refine — so Zod v4 .partial() works
+const updateProfileBase = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
   phone: z
-    .string({ required_error: "Phone is required" })
-    .regex(/^\d{10}$/, "Enter a valid 10-digit phone number"),
-  isDefault: z.boolean().default(false),
+    .string()
+    .regex(/^[6-9]\d{9}$/, "Invalid phone number")
+    .optional(),
+  dateOfBirth: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), "Invalid date")
+    .optional(),
 });
 
-// ─── Frontend file validation helper (not used on backend) ───────────────────
+export const updateProfileSchema = updateProfileBase.refine(
+  (data) => Object.values(data).some((v) => v !== undefined),
+  { message: "Provide at least one field to update" },
+);
 
-/**
- * Call this manually in the frontend before submitting the registration form.
- * React Hook Form doesn't handle File inputs natively with Zod — use this separately.
- *
- * @example
- *   const fileError = validateDLFile(fileInputRef.current.files[0]);
- *   if (fileError) setError('uploadDL', { message: fileError });
- */
+// ─────────────────────────────────────────────
+// ✅ validateDLFile — validates driver license file
+// Used in RegisterPage.jsx for client-side file validation
+// Zod can't inspect File objects, so this is a plain helper function
+// ─────────────────────────────────────────────
+const ALLOWED_DL_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+const MAX_DL_SIZE_MB = 5;
+
 export const validateDLFile = (file) => {
-  if (!file) return "Driver licence document is required";
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "application/pdf",
-  ];
-  if (!allowedTypes.includes(file.type))
-    return "Only JPG, PNG, WEBP or PDF files are accepted";
-  const maxSize = 5 * 1024 * 1024; // 5 MB
-  if (file.size > maxSize) return "File must be smaller than 5 MB";
-  return null; // valid
+  if (!file) return "Driver license or State ID is required";
+
+  if (!ALLOWED_DL_TYPES.includes(file.type))
+    return "Only JPEG, PNG, WEBP, or PDF files are allowed";
+
+  if (file.size > MAX_DL_SIZE_MB * 1024 * 1024)
+    return `File size must be under ${MAX_DL_SIZE_MB}MB`;
+
+  return null; // ✅ null = valid
 };
-
-// ─── TypeScript-style type exports (JSDoc for plain JS projects) ──────────────
-
-/**
- * @typedef {import('zod').infer<typeof registerSchema>}    RegisterInput
- * @typedef {import('zod').infer<typeof loginSchema>}       LoginInput
- * @typedef {import('zod').infer<typeof updateProfileSchema>} UpdateProfileInput
- * @typedef {import('zod').infer<typeof changePasswordSchema>} ChangePasswordInput
- * @typedef {import('zod').infer<typeof addAddressSchema>}  AddAddressInput
- */

@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true, trim: true },
-    slug: { type: String, unique: true },
+    name: { type: String, required: true, unique: true, trim: true }, // ✅ unique:true creates index
+    slug: { type: String, unique: true }, // ✅ unique:true creates index — no schema.index() needed
     description: String,
     image: String,
     icon: String,
@@ -19,24 +19,14 @@ const categorySchema = new mongoose.Schema(
 );
 
 // ─────────────────────────────────────────────
-// ✅ Indexes
+// ✅ Only non-unique compound index here
+// slug is already indexed via unique:true above
 // ─────────────────────────────────────────────
+categorySchema.index({ isActive: 1, sortOrder: 1 }); // category listing query
 
-// 1. Slug unique index — speeds up getCategory by slug
-//    e.g. Category.findOne({ slug: req.params.slug })
-categorySchema.index({ slug: 1 }, { unique: true });
-
-// 2. Active + sort index — speeds up getCategories listing
-//    e.g. Category.find({ isActive: true }).sort("sortOrder name")
-categorySchema.index({ isActive: 1, sortOrder: 1 });
-
-// ─────────────────────────────────────────────
-// Hooks
-// ─────────────────────────────────────────────
 categorySchema.pre("save", function (next) {
-  if (!this.slug) {
+  if (!this.slug)
     this.slug = this.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  }
   next();
 });
 

@@ -47,6 +47,10 @@ export default function ProductDetailPage() {
 
   const discount = getDiscountPercent(product.price, product.mrp);
 
+  // ✅ Use large for main product image — best quality for detail view
+  const mainImage = product.images?.[activeImg];
+  const mainImageUrl = getImageUrl(mainImage?.large || mainImage?.url);
+
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
@@ -54,18 +58,16 @@ export default function ProductDetailPage() {
       return;
     }
 
-    // ─── Zod replaces your manual if(!comment.trim()) check ───
-    const result = reviewSchema.safeParse(reviewForm);
+    const result = addReviewSchema.safeParse(reviewForm);
     if (!result.success) {
-      const firstError = result.error.errors[0].message;
-      toast.error(firstError); // shows "Comment must be at least 3 characters" etc.
+      toast.error(result.error.errors[0].message);
       return;
     }
 
     setSubmittingReview(true);
     const res = await dispatch(
       addReview({ id: product._id, data: result.data }),
-    ); // ← use result.data (trimmed)
+    );
     setSubmittingReview(false);
 
     if (!res.error) {
@@ -111,23 +113,28 @@ export default function ProductDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-14">
         {/* Images */}
         <div className="space-y-3">
+          {/* ✅ Main image — uses large (800x800) for best quality */}
           <div className="aspect-square bg-gray-50 rounded-2xl overflow-hidden">
             <img
-              src={getImageUrl(product.images?.[activeImg]?.url)}
-              alt={product.name}
+              src={mainImageUrl}
+              alt={mainImage?.alt || product.name}
               className="w-full h-full object-contain p-4"
             />
           </div>
+
+          {/* ✅ Thumbnails strip — uses thumbnail (100x100) for fast load */}
           {product.images?.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {product.images.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveImg(i)}
-                  className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${activeImg === i ? "border-primary-500" : "border-transparent hover:border-gray-300"}`}
+                  className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all
+                    ${activeImg === i ? "border-primary-500" : "border-transparent hover:border-gray-300"}`}
                 >
+                  {/* ✅ thumbnail for strip — tiny, loads instantly */}
                   <img
-                    src={getImageUrl(img.url)}
+                    src={getImageUrl(img.thumbnail || img.url)}
                     alt={img.alt}
                     className="w-full h-full object-cover"
                   />
@@ -195,7 +202,6 @@ export default function ProductDetailPage() {
             </p>
           )}
 
-          {/* CBD/THC info */}
           {(product.cbdContent || product.thcContent) && (
             <div className="flex gap-3 mb-5">
               {product.cbdContent && (
@@ -223,19 +229,16 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Prescription warning */}
           {product.requiresPrescription && (
             <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-xl p-3 mb-5">
               <FiAlertCircle className="text-orange-500 shrink-0 mt-0.5" />
               <p className="text-sm text-orange-700">
                 <strong>Prescription Required:</strong> This product requires a
-                valid prescription from a licensed doctor. Please upload your
-                prescription during checkout.
+                valid prescription from a licensed doctor.
               </p>
             </div>
           )}
 
-          {/* Stock */}
           <div className="mb-5">
             {product.stock > 0 ? (
               <p className="text-sm text-primary-600 font-medium">
@@ -247,7 +250,6 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Quantity + Cart */}
           {product.stock > 0 && (
             <div className="flex items-center gap-4 mb-6">
               <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
@@ -276,7 +278,6 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* Wishlist + Share */}
           <div className="flex gap-3 mb-6">
             <button
               onClick={handleToggle}
@@ -287,19 +288,18 @@ export default function ProductDetailPage() {
               {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
             </button>
             <button
-              onClick={() => {
+              onClick={() =>
                 navigator.share?.({
                   title: product.name,
                   url: window.location.href,
-                });
-              }}
+                })
+              }
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:border-gray-300 transition-colors"
             >
               <FiShare2 /> Share
             </button>
           </div>
 
-          {/* Trust indicators */}
           <div className="grid grid-cols-2 gap-2">
             {[
               { icon: "🔬", label: "Certificate of Analysis" },
@@ -338,7 +338,6 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Tab content */}
       <div className="max-w-3xl">
         {activeTab === "description" && (
           <div className="prose prose-green max-w-none">
@@ -394,7 +393,6 @@ export default function ProductDetailPage() {
 
         {activeTab === "reviews" && (
           <div className="space-y-6">
-            {/* Review form */}
             {user && (
               <form
                 onSubmit={handleReviewSubmit}
@@ -432,7 +430,6 @@ export default function ProductDetailPage() {
               </form>
             )}
 
-            {/* Reviews list */}
             {product.reviews?.length === 0 ? (
               <p className="text-gray-400 text-sm">
                 No reviews yet. Be the first to review!

@@ -13,7 +13,7 @@ const reviewSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    slug: { type: String, unique: true },
+    slug: { type: String, unique: true }, // ✅ unique:true already creates index
     brand: { type: String, required: true },
     category: {
       type: mongoose.Schema.Types.ObjectId,
@@ -22,23 +22,20 @@ const productSchema = new mongoose.Schema(
     },
     description: { type: String, required: true },
     shortDescription: String,
-
-    // ✅ Updated image schema — stores thumbnail, medium, large for responsive use
     images: [
       {
-        url: String, // original Cloudinary URL
-        thumbnail: String, // 100x100
-        medium: String, // 400x400
-        large: String, // 800x800
+        url: String,
+        thumbnail: String,
+        medium: String,
+        large: String,
         alt: String,
       },
     ],
-
     price: { type: Number, required: true, min: 0 },
     mrp: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0 },
     stock: { type: Number, default: 0, min: 0 },
-    sku: { type: String, unique: true },
+    sku: { type: String, unique: true }, // ✅ unique:true already creates index
     tags: [String],
     features: [String],
     specifications: [{ key: String, value: String }],
@@ -61,18 +58,15 @@ const productSchema = new mongoose.Schema(
 );
 
 // ─────────────────────────────────────────────
-// ✅ Indexes
+// ✅ Only compound/non-unique indexes here
+// slug and sku are already indexed via unique:true above
 // ─────────────────────────────────────────────
-productSchema.index({ category: 1, price: 1 });
-productSchema.index({ slug: 1 }, { unique: true });
-productSchema.index({ name: 1, brand: 1 });
-productSchema.index({ isActive: 1, isFeatured: 1 });
-productSchema.index({ isActive: 1, isBestSeller: 1 });
-productSchema.index({ isActive: 1, isNewArrival: 1 });
+productSchema.index({ category: 1, price: 1 }); // filtered + sorted listing
+productSchema.index({ name: 1, brand: 1 }); // search queries
+productSchema.index({ isActive: 1, isFeatured: 1 }); // featured products
+productSchema.index({ isActive: 1, isBestSeller: 1 }); // bestsellers
+productSchema.index({ isActive: 1, isNewArrival: 1 }); // new arrivals
 
-// ─────────────────────────────────────────────
-// Hooks
-// ─────────────────────────────────────────────
 productSchema.pre("save", async function (next) {
   try {
     if (this.mrp > 0 && this.price < this.mrp)

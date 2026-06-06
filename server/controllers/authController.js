@@ -169,3 +169,14 @@ export const logout = asyncHandler(async (req, res) => {
   });
   res.json({ message: "Logged out successfully" });
 });
+
+export const saveFCMToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new AppError("FCM token is required", 400);
+
+  await User.findByIdAndUpdate(req.user._id, {
+    $addToSet: { fcmTokens: token } // ✅ $addToSet prevents duplicates
+  });
+
+  res.json({ message: "FCM token saved" });
+});

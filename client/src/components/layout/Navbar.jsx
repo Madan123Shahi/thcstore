@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   FiShoppingCart,
-  FiSearch,
   FiUser,
   FiMenu,
   FiX,
@@ -16,9 +15,9 @@ import {
 import { GiLeafSkeleton } from "react-icons/gi";
 import { toggleCart } from "../../store/slices/uiSlice";
 import { logoutUser } from "../../store/slices/authSlice";
-import { clearCart } from "../../store/slices/cartSlice";
-import { selectCartCount } from "../../store/slices/cartSlice";
+import { clearCart, selectCartCount } from "../../store/slices/cartSlice";
 import { useAuth } from "../../hooks";
+import SearchBar from "../product/SearchBar"; // ✅ replaced basic form
 
 const NAV_LINKS = [
   { label: "Shop All", to: "/products" },
@@ -34,9 +33,9 @@ export default function Navbar() {
   const location = useLocation();
   const { user, isLoggedIn, isAdmin } = useAuth();
   const cartCount = useSelector(selectCartCount);
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const userMenuRef = useRef(null);
 
@@ -58,17 +57,8 @@ export default function Navbar() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery("");
-    }
-  };
-
   const handleLogout = async () => {
     await dispatch(logoutUser());
-    // dispatch(logoutUser());
     dispatch(clearCart());
     setUserMenuOpen(false);
     navigate("/login");
@@ -76,7 +66,8 @@ export default function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-white border-b border-gray-100"}`}
+      className={`sticky top-0 z-50 transition-all duration-300
+      ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-white border-b border-gray-100"}`}
     >
       {/* Announcement bar */}
       <div className="bg-primary-700 text-white text-xs text-center py-2 px-4 font-medium tracking-wide">
@@ -123,22 +114,10 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Search */}
-          <form
-            onSubmit={handleSearch}
-            className="hidden md:flex items-center flex-1 max-w-xs"
-          >
-            <div className="relative w-full">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products, brands…"
-                className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all"
-              />
-            </div>
-          </form>
+          {/* ✅ SearchBar with autocomplete — replaces basic form */}
+          <div className="hidden md:block flex-1 max-w-xs">
+            <SearchBar />
+          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1">
@@ -182,6 +161,7 @@ export default function Navbar() {
                     className={`text-gray-400 text-sm transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
                   />
                 </button>
+
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-lg border border-gray-100 py-1.5 animate-scale-in z-50">
                     <div className="px-4 py-2 border-b border-gray-50">
@@ -234,7 +214,7 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Mobile menu */}
+            {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileOpen((v) => !v)}
               className="btn-ghost p-2.5 lg:hidden"
@@ -253,16 +233,10 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="lg:hidden border-t border-gray-100 bg-white animate-slide-down">
           <div className="page-container py-4 space-y-1">
-            <form onSubmit={handleSearch} className="relative mb-3">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products…"
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-              />
-            </form>
+            {/* ✅ SearchBar in mobile menu too */}
+            <div className="mb-3">
+              <SearchBar />
+            </div>
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.to}

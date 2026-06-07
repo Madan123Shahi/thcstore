@@ -11,13 +11,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { loginLoading } = useSelector((s) => s.auth); // removed loginError
+  const { loginLoading } = useSelector((s) => s.auth);
 
-  const [form, setForm] = useState({
-    emailOrPhone: "",
-    password: "",
-  });
-
+  const [form, setForm] = useState({ emailOrPhone: "", password: "" });
   const [showPass, setShowPass] = useState(false);
 
   const from = location.state?.from?.pathname || "/";
@@ -28,19 +24,15 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!form.emailOrPhone || !form.password) {
       toast.error("Please fill all fields");
       return;
     }
-
     const res = await dispatch(login(form));
-
     if (login.rejected.match(res)) {
       toast.error(res.payload);
       return;
     }
-
     navigate(from, { replace: true });
   };
 
@@ -52,11 +44,9 @@ export default function LoginPage() {
           <div className="w-14 h-14 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
             <GiLeafSkeleton className="text-white text-2xl" />
           </div>
-
           <h1 className="font-display text-3xl font-bold text-gray-900">
             Welcome back
           </h1>
-
           <p className="text-gray-400 mt-1 text-sm">
             Sign in to your THC Store account
           </p>
@@ -69,15 +59,11 @@ export default function LoginPage() {
               <label className="text-sm font-medium text-gray-700 mb-1.5 block">
                 Email Address or Phone Number
               </label>
-
               <input
                 type="text"
                 value={form.emailOrPhone}
                 onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    emailOrPhone: e.target.value,
-                  }))
+                  setForm((f) => ({ ...f, emailOrPhone: e.target.value }))
                 }
                 className="input-field"
                 placeholder="you@example.com or 9812345678"
@@ -88,26 +74,31 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Password
-              </label>
+              {/* ✅ Label row with forgot password link */}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
 
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
                   value={form.password}
                   onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      password: e.target.value,
-                    }))
+                    setForm((f) => ({ ...f, password: e.target.value }))
                   }
                   className="input-field pr-10"
                   placeholder="••••••••"
                   autoComplete="current-password"
                   required
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPass((v) => !v)}

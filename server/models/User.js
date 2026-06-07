@@ -19,14 +19,14 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: true, // ✅ this already creates the index — no schema.index() needed
+      unique: true,
       lowercase: true,
       trim: true,
     },
     phone: {
       type: String,
       trim: true,
-      unique: true, // ✅ this already creates the index — no schema.index() needed
+      unique: true,
       required: [true, "Phone Number is required"],
     },
     uploadDL: {
@@ -46,12 +46,14 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     prescriptionUploaded: { type: Boolean, default: false },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
-    fcmTokens: [{ type: String }],
+    fcmTokens: [{ type: String }], // ✅ for push notifications
+
+    // ✅ Password reset fields
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
   },
   { timestamps: true },
 );
-
-// ✅ No schema.index() for email/phone — unique:true above already handles it
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

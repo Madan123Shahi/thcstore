@@ -21,6 +21,8 @@ import {
 } from "../components/common";
 import toast from "react-hot-toast";
 import { addReviewSchema } from "./../../../shared/schemas/product.schema";
+import { trackProductView, trackAddToCart, trackPurchase } from '../utils/useAnalytics';
+
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -40,6 +42,9 @@ export default function ProductDetailPage() {
     dispatch(fetchProduct(slug));
     window.scrollTo(0, 0);
   }, [slug, dispatch]);
+
+  useEffect(() => { trackProductView(product._id, product.name); }, [product]);
+
 
   if (loading) return <PageLoader />;
   if (error) return <ErrorMessage message={error} />;

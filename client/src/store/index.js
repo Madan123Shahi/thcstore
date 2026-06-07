@@ -17,6 +17,7 @@ import categoryReducer from "./slices/categorySlice";
 import orderReducer from "./slices/orderSlice";
 import uiReducer from "./slices/uiSlice";
 import wishlistReducer from "./slices/wishlistSlice";
+import couponReducer from "./slices/couponSlice";
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -26,6 +27,7 @@ const rootReducer = combineReducers({
   orders: orderReducer,
   ui: uiReducer,
   wishlist: wishlistReducer,
+  coupon: couponReducer,
 });
 
 const persistConfig = {

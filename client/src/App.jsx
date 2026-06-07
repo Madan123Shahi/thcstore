@@ -27,6 +27,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import Loader from "./components/common/Loader";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 // ─── Admin routes — lazy loaded (separate chunk, not in customer bundle) ──────
 // ✅ Customers never download admin code — faster initial load
@@ -34,6 +36,19 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminProductForm = lazy(() => import("./pages/admin/AdminProductForm"));
+const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+
+function GA4Tracker() {
+  const location = useLocation();
+  useEffect(() => {
+    if (window.gtag) {
+      window.gtag("config", "G-XXXXXXXXXX", {
+        page_path: location.pathname + location.search,
+      });
+    }
+  }, [location]);
+  return null;
+}
 
 // ─── Scroll To Top ────────────────────────────────────────────────────────────
 function ScrollToTop() {
@@ -76,6 +91,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <GA4Tracker />
       <ScrollToTop />
       <Toaster
         position="top-right"
@@ -96,7 +112,6 @@ export default function App() {
             <Route path="products/:slug" element={<ProductDetailPage />} />
             <Route path="cart" element={<CartPage />} />
             <Route path="wishlist" element={<WishlistPage />} />
-
             {/* ── Guest only ── */}
             <Route
               path="/login"
@@ -114,7 +129,23 @@ export default function App() {
                 </GuestRoute>
               }
             />
-
+            <Route
+              path="/forgot-password"
+              element={
+                <GuestRoute>
+                  <ForgotPasswordPage />
+                </GuestRoute>
+              }
+            />{" "}
+            // ✅
+            <Route
+              path="/reset-password/:token"
+              element={
+                <GuestRoute>
+                  <ResetPasswordPage />
+                </GuestRoute>
+              }
+            />
             {/* ── Protected ── */}
             <Route
               path="checkout"
@@ -156,7 +187,6 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
             {/* ── Admin routes — lazy loaded in Suspense ── */}
             {/* ✅ Suspense shows Loader while admin JS chunk downloads */}
             <Route
@@ -209,7 +239,16 @@ export default function App() {
                 </AdminRoute>
               }
             />
-
+            <Route
+              path="admin/coupons"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <AdminCoupons />
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

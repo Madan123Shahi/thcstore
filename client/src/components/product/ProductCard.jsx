@@ -7,6 +7,7 @@ import {
   getImageUrl,
 } from "../../utils/helpers";
 import { useCart, useWishlist } from "../../hooks";
+import { trackAddToCart} from '../../utils/useAnalytics';
 
 // ✅ React.memo — prevents re-render if product prop hasn't changed
 const ProductCard = memo(function ProductCard({ product }) {
@@ -15,9 +16,14 @@ const ProductCard = memo(function ProductCard({ product }) {
   const discount = getDiscountPercent(product.price, product.mrp);
 
   // ✅ useCallback — stable reference, prevents child re-renders
-  const handleAdd = useCallback(() => {
-    if (product.stock > 0) handleAddToCart(product);
-  }, [product, handleAddToCart]);
+ 
+
+const handleAdd = useCallback(() => {
+  if (product.stock > 0) {
+    handleAddToCart(product);
+    trackAddToCart(product._id, product.name); // ✅ track event
+  }
+}, [product, handleAddToCart]);
 
   // ✅ Use thumbnail for cards — smallest size, fastest load
   const cardImage = product.images?.[0]?.thumbnail || product.images?.[0]?.url;

@@ -6,8 +6,9 @@ import {
 } from "react-icons/fi";
 import { fetchOrder } from "../store/slices/orderSlice";
 import { formatPrice, formatDate } from "../utils/helpers";
-import OrderTracking from "../components/common/OrderTracking"; // ✅ added
+import OrderTracking from "../components/common/OrderTracking";
 import api from "../utils/api";
+import { trackPurchase } from '../utils/useAnalytics'; // ✅ keep only what's used
 import toast from "react-hot-toast";
 
 export default function OrderSuccessPage() {
@@ -27,6 +28,11 @@ export default function OrderSuccessPage() {
     const verifyStripePayment = async () => {
       if (!order || order.paymentMethod !== "stripe" || order.isPaid) {
         setVerified(true);
+
+        // ✅ Track COD purchase — order already confirmed
+        if (order && !verified) {
+          trackPurchase(order._id, order.totalPrice);
+        }
         return;
       }
       if (!order.paymentIntentId) {
@@ -39,6 +45,9 @@ export default function OrderSuccessPage() {
         setVerified(true);
         dispatch(fetchOrder(id));
         toast.success("Payment verified successfully!");
+
+        // ✅ Track Stripe purchase — after payment verified
+        trackPurchase(order._id, order.totalPrice);
       } catch (err) {
         setVerifyError(err.response?.data?.message || "Payment verification failed.");
         toast.error("Payment verification failed. Contact support.");
@@ -88,7 +97,6 @@ export default function OrderSuccessPage() {
       {/* ── Order summary card ── */}
       {order && (
         <div className="card p-6 text-left mb-6 space-y-5">
-          {/* Order number + date */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-400">Order Number</p>
@@ -100,10 +108,8 @@ export default function OrderSuccessPage() {
             </div>
           </div>
 
-          {/* ✅ Live order tracking progress bar */}
           <OrderTracking order={order} />
 
-          {/* Payment status badge */}
           <div className="flex gap-2 flex-wrap">
             <span className={`badge text-xs px-2 py-1 rounded-full font-medium
               ${order.isPaid ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
@@ -116,7 +122,6 @@ export default function OrderSuccessPage() {
             )}
           </div>
 
-          {/* Items */}
           <div className="space-y-2">
             {order.items?.map((item) => (
               <div key={item._id} className="flex items-center justify-between text-sm">
@@ -130,7 +135,6 @@ export default function OrderSuccessPage() {
             ))}
           </div>
 
-          {/* Total */}
           <div className="pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
             <span>Total Paid</span>
             <span>{formatPrice(order.totalPrice)}</span>

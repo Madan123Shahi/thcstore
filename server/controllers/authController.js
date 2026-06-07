@@ -1,21 +1,25 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/User.js";
-import { asyncHandler, AppError } from "../utils/appError.js"; // ✅ your custom utils
+import { asyncHandler, AppError } from "../utils/appError.js";
+import {
+  sendOrderConfirmationEmail,
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+} from "../services/emailService.js";
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || "30d",
   });
 
-// Helper to set the cookie and respond
 const sendTokenCookie = (res, statusCode, user, token) => {
   res.cookie("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in ms
+    maxAge: 30 * 24 * 60 * 60 * 1000,
   });
-
   res.status(statusCode).json({
     user: {
       _id: user._id,
@@ -37,7 +41,6 @@ export const register = asyncHandler(async (req, res) => {
     );
 
   const exists = await User.findOne({ $or: [{ email }, { phone }] });
-
   if (exists) {
     throw new AppError(
       exists.email === email
@@ -53,8 +56,11 @@ export const register = asyncHandler(async (req, res) => {
     password,
     phone,
     dob,
-    uploadDL: uploadDL.path, // ✅ Cloudinary URL
+    uploadDL: uploadDL.path,
   });
+
+  // ✅ Send welcome email — don't await, non-blocking
+  sendWelcomeEmail(user).catch(console.error);
 
   const token = signToken(user._id);
   sendTokenCookie(res, 201, user, token);
@@ -66,7 +72,6 @@ export const login = asyncHandler(async (req, res) => {
   if (!emailOrPhone || !password)
     throw new AppError("Email/Phone and password are required", 400);
 
-  // ✅ Type check to nullify NoSQL injection
   if (typeof emailOrPhone !== "string" || typeof password !== "string")
     throw new AppError("Invalid input", 400);
 
@@ -94,44 +99,122 @@ export const getMe = asyncHandler(async (req, res) => {
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const { name, phone, dateOfBirth } = req.body;
-
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { name, phone, dateOfBirth },
     { new: true, runValidators: true },
   );
-
   if (!user) throw new AppError("User not found", 404);
   res.json(user);
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-
   const user = await User.findById(req.user._id).select("+password");
   if (!user) throw new AppError("User not found", 404);
-
   if (!(await user.matchPassword(currentPassword)))
     throw new AppError("Current password incorrect", 400);
-
   user.password = newPassword;
   await user.save();
   res.json({ message: "Password updated successfully" });
 });
 
+// ─────────────────────────────────────────────
+// @desc    Forgot password — send reset email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+// ─────────────────────────────────────────────
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) throw new AppError("Email is required", 400);
+
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+  // ✅ Always return success — don't reveal if email exists (security)
+  if (!user) {
+    return res.json({
+      message: "If that email exists, a reset link has been sent.",
+    });
+  }
+
+  // ✅ Generate secure random token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // ✅ Save hashed token + expiry to user
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  await user.save({ validateBeforeSave: false });
+
+  // ✅ Send reset email with plain token (not hashed)
+  const sent = await sendPasswordResetEmail(user, resetToken);
+
+  if (!sent) {
+    // Rollback if email failed
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new AppError("Failed to send reset email. Try again later.", 500);
+  }
+
+  res.json({ message: "If that email exists, a reset link has been sent." });
+});
+
+// ─────────────────────────────────────────────
+// @desc    Reset password with token
+// @route   PUT /api/auth/reset-password/:token
+// @access  Public
+// ─────────────────────────────────────────────
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+
+  if (!newPassword) throw new AppError("New password is required", 400);
+
+  // ✅ Hash the incoming token to compare with stored hash
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() }, // ✅ not expired
+  });
+
+  if (!user) throw new AppError("Invalid or expired reset token", 400);
+
+  // ✅ Update password and clear reset fields
+  user.password = newPassword;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+
+  // ✅ Log user in automatically after reset
+  const jwtToken = signToken(user._id);
+  sendTokenCookie(res, 200, user, jwtToken);
+});
+
+// ─────────────────────────────────────────────
+// @desc    Save FCM token for push notifications
+// @route   POST /api/auth/fcm-token
+// @access  Private
+// ─────────────────────────────────────────────
+export const saveFCMToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new AppError("FCM token is required", 400);
+  await User.findByIdAndUpdate(req.user._id, {
+    $addToSet: { fcmTokens: token },
+  });
+  res.json({ message: "FCM token saved" });
+});
+
 export const addAddress = asyncHandler(async (req, res) => {
   const { label, name, line1, line2, city, state, pincode, phone, isDefault } =
     req.body;
-
   const user = await User.findById(req.user._id);
   if (!user) throw new AppError("User not found", 404);
-
-  // ✅ Reset other defaults if this is the new default
-  if (isDefault) {
-    user.addresses.forEach((a) => (a.isDefault = false));
-  }
-
-  // ✅ Only explicitly named fields pushed — injection safe
+  if (isDefault) user.addresses.forEach((a) => (a.isDefault = false));
   user.addresses.push({
     label,
     name,
@@ -143,7 +226,6 @@ export const addAddress = asyncHandler(async (req, res) => {
     phone,
     isDefault,
   });
-
   await user.save();
   res.status(201).json({ addresses: user.addresses });
 });
@@ -151,32 +233,15 @@ export const addAddress = asyncHandler(async (req, res) => {
 export const toggleWishlist = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
   if (!user) throw new AppError("User not found", 404);
-
   const pid = req.params.productId;
   const idx = user.wishlist.findIndex((id) => id.toString() === pid);
-
   if (idx > -1) user.wishlist.splice(idx, 1);
   else user.wishlist.push(pid);
-
   await user.save();
   res.json({ wishlist: user.wishlist });
 });
 
 export const logout = asyncHandler(async (req, res) => {
-  res.cookie("token", "", {
-    httpOnly: true,
-    expires: new Date(0),
-  });
+  res.cookie("token", "", { httpOnly: true, expires: new Date(0) });
   res.json({ message: "Logged out successfully" });
-});
-
-export const saveFCMToken = asyncHandler(async (req, res) => {
-  const { token } = req.body;
-  if (!token) throw new AppError("FCM token is required", 400);
-
-  await User.findByIdAndUpdate(req.user._id, {
-    $addToSet: { fcmTokens: token } // ✅ $addToSet prevents duplicates
-  });
-
-  res.json({ message: "FCM token saved" });
 });

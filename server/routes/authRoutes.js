@@ -8,7 +8,9 @@ import {
   addAddress,
   toggleWishlist,
   logout,
-  saveFCMToken
+  forgotPassword,
+  resetPassword,
+  saveFCMToken,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -22,12 +24,14 @@ import {
 
 const router = express.Router();
 
-// ✅ Public routes — validated before hitting controller
+// ── Public ──────────────────────────────────────────────────────
 router.post("/register", uploadDL, validate(registerSchema), register);
 router.post("/login", validate(loginSchema), login);
 router.post("/logout", logout);
+router.post("/forgot-password", forgotPassword);
+router.put("/reset-password/:token", resetPassword);
 
-// ✅ Protected routes
+// ── Protected ────────────────────────────────────────────────────
 router.get("/me", protect, getMe);
 router.put("/profile", protect, validate(updateProfileSchema), updateProfile);
 router.put(

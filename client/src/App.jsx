@@ -1,17 +1,12 @@
 import { useEffect, lazy, Suspense } from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { fetchMe } from "./store/slices/authSlice";
 import { useAuth } from "./hooks";
+import ErrorBoundary from "./components/common/ErrorBoundary"; // ✅
 
-// ─── Customer routes — in main bundle (load immediately) ─────────────────────
+// ── Customer routes ───────────────────────────────────────────
 import Layout from "./components/layout/Layout";
 import HomePage from "./pages/HomePage";
 import ProductsPage from "./pages/ProductsPage";
@@ -25,19 +20,28 @@ import ProfilePage from "./pages/ProfilePage";
 import WishlistPage from "./pages/WishlistPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import NotFoundPage from "./pages/NotFoundPage";
-import Loader from "./components/common/Loader";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import NotFoundPage from "./pages/NotFoundPage";
+import Loader from "./components/common/Loader";
 
-// ─── Admin routes — lazy loaded (separate chunk, not in customer bundle) ──────
-// ✅ Customers never download admin code — faster initial load
+// ── Admin routes — lazy loaded ────────────────────────────────
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminProductForm = lazy(() => import("./pages/admin/AdminProductForm"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 
+// ── Scroll to top ─────────────────────────────────────────────
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+  return null;
+}
+
+// ── GA4 route tracker ─────────────────────────────────────────
 function GA4Tracker() {
   const location = useLocation();
   useEffect(() => {
@@ -50,16 +54,7 @@ function GA4Tracker() {
   return null;
 }
 
-// ─── Scroll To Top ────────────────────────────────────────────────────────────
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }); // no dep array = fires on every route change
-  return null;
-}
-
-// ─── Route Guards ─────────────────────────────────────────────────────────────
+// ── Route Guards ─────────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const { isLoggedIn, fetchMeLoading } = useAuth();
   if (fetchMeLoading) return null;
@@ -80,7 +75,7 @@ const GuestRoute = ({ children }) => {
   return isLoggedIn ? <Navigate to="/" replace /> : children;
 };
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+// ── App ───────────────────────────────────────────────────────
 export default function App() {
   const dispatch = useDispatch();
   const { fetchMeLoading } = useAuth();
@@ -90,169 +85,240 @@ export default function App() {
   }, [dispatch]);
 
   return (
-    <BrowserRouter>
-      <GA4Tracker />
-      <ScrollToTop />
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: { fontFamily: '"DM Sans", sans-serif', fontSize: "14px" },
-          success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
-        }}
-      />
-      {fetchMeLoading ? (
-        <Loader />
-      ) : (
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            {/* ── Public routes ── */}
-            <Route index element={<HomePage />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="products/:slug" element={<ProductDetailPage />} />
-            <Route path="cart" element={<CartPage />} />
-            <Route path="wishlist" element={<WishlistPage />} />
-            {/* ── Guest only ── */}
-            <Route
-              path="/login"
-              element={
-                <GuestRoute>
-                  <LoginPage />
-                </GuestRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <GuestRoute>
-                  <RegisterPage />
-                </GuestRoute>
-              }
-            />
-            <Route
-              path="/forgot-password"
-              element={
-                <GuestRoute>
-                  <ForgotPasswordPage />
-                </GuestRoute>
-              }
-            />{" "}
-            // ✅
-            <Route
-              path="/reset-password/:token"
-              element={
-                <GuestRoute>
-                  <ResetPasswordPage />
-                </GuestRoute>
-              }
-            />
-            {/* ── Protected ── */}
-            <Route
-              path="checkout"
-              element={
-                <ProtectedRoute>
-                  <CheckoutPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="order-success/:id"
-              element={
-                <ProtectedRoute>
-                  <OrderSuccessPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="orders"
-              element={
-                <ProtectedRoute>
-                  <OrdersPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="orders/:id"
-              element={
-                <ProtectedRoute>
-                  <OrderDetailPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-            {/* ── Admin routes — lazy loaded in Suspense ── */}
-            {/* ✅ Suspense shows Loader while admin JS chunk downloads */}
-            <Route
-              path="admin"
-              element={
-                <AdminRoute>
-                  <Suspense fallback={<Loader />}>
-                    <AdminDashboard />
-                  </Suspense>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="admin/products"
-              element={
-                <AdminRoute>
-                  <Suspense fallback={<Loader />}>
-                    <AdminProducts />
-                  </Suspense>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="admin/products/new"
-              element={
-                <AdminRoute>
-                  <Suspense fallback={<Loader />}>
-                    <AdminProductForm />
-                  </Suspense>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="admin/products/:id/edit"
-              element={
-                <AdminRoute>
-                  <Suspense fallback={<Loader />}>
-                    <AdminProductForm />
-                  </Suspense>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="admin/orders"
-              element={
-                <AdminRoute>
-                  <Suspense fallback={<Loader />}>
-                    <AdminOrders />
-                  </Suspense>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="admin/coupons"
-              element={
-                <AdminRoute>
-                  <Suspense fallback={<Loader />}>
-                    <AdminCoupons />
-                  </Suspense>
-                </AdminRoute>
-              }
-            />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-      )}
-    </BrowserRouter>
+    // ✅ Top-level boundary — catches catastrophic errors
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ScrollToTop />
+        <GA4Tracker />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: { fontFamily: '"DM Sans", sans-serif', fontSize: "14px" },
+            success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
+          }}
+        />
+        {fetchMeLoading ? (
+          <Loader />
+        ) : (
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              {/* ── Public ── */}
+              {/* ✅ Each page wrapped in ErrorBoundary — one page crash won't affect others */}
+              <Route
+                index
+                element={
+                  <ErrorBoundary>
+                    <HomePage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="products"
+                element={
+                  <ErrorBoundary>
+                    <ProductsPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="products/:slug"
+                element={
+                  <ErrorBoundary>
+                    <ProductDetailPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="cart"
+                element={
+                  <ErrorBoundary>
+                    <CartPage />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="wishlist"
+                element={
+                  <ErrorBoundary>
+                    <WishlistPage />
+                  </ErrorBoundary>
+                }
+              />
+
+              {/* ── Guest only ── */}
+              <Route
+                path="/login"
+                element={
+                  <GuestRoute>
+                    <ErrorBoundary>
+                      <LoginPage />
+                    </ErrorBoundary>
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <GuestRoute>
+                    <ErrorBoundary>
+                      <RegisterPage />
+                    </ErrorBoundary>
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <GuestRoute>
+                    <ErrorBoundary>
+                      <ForgotPasswordPage />
+                    </ErrorBoundary>
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/reset-password/:token"
+                element={
+                  <GuestRoute>
+                    <ErrorBoundary>
+                      <ResetPasswordPage />
+                    </ErrorBoundary>
+                  </GuestRoute>
+                }
+              />
+
+              {/* ── Protected ── */}
+              <Route
+                path="checkout"
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <CheckoutPage />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="order-success/:id"
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <OrderSuccessPage />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="orders"
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <OrdersPage />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="orders/:id"
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <OrderDetailPage />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="profile"
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <ProfilePage />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ── Admin — lazy + error boundary ── */}
+              <Route
+                path="admin"
+                element={
+                  <AdminRoute>
+                    <Suspense fallback={<Loader />}>
+                      <ErrorBoundary>
+                        <AdminDashboard />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="admin/products"
+                element={
+                  <AdminRoute>
+                    <Suspense fallback={<Loader />}>
+                      <ErrorBoundary>
+                        <AdminProducts />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="admin/products/new"
+                element={
+                  <AdminRoute>
+                    <Suspense fallback={<Loader />}>
+                      <ErrorBoundary>
+                        <AdminProductForm />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="admin/products/:id/edit"
+                element={
+                  <AdminRoute>
+                    <Suspense fallback={<Loader />}>
+                      <ErrorBoundary>
+                        <AdminProductForm />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="admin/orders"
+                element={
+                  <AdminRoute>
+                    <Suspense fallback={<Loader />}>
+                      <ErrorBoundary>
+                        <AdminOrders />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="admin/coupons"
+                element={
+                  <AdminRoute>
+                    <Suspense fallback={<Loader />}>
+                      <ErrorBoundary>
+                        <AdminCoupons />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </AdminRoute>
+                }
+              />
+
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        )}
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

@@ -1,10 +1,14 @@
-import { FiStar } from 'react-icons/fi';
+import { FiStar } from "react-icons/fi";
+
+export { default as ErrorBoundary } from "./ErrorBoundary";
 
 // Spinner
-export function Spinner({ size = 'md', className = '' }) {
-  const s = { sm: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-12 h-12' };
+export function Spinner({ size = "md", className = "" }) {
+  const s = { sm: "w-4 h-4", md: "w-8 h-8", lg: "w-12 h-12" };
   return (
-    <div className={`${s[size]} border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin ${className}`} />
+    <div
+      className={`${s[size]} border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin ${className}`}
+    />
   );
 }
 
@@ -37,13 +41,16 @@ export function LoadingGrid({ count = 8 }) {
 }
 
 // Star rating
-export function StarRating({ rating, reviews, size = 'sm' }) {
-  const s = size === 'sm' ? 'text-xs' : 'text-sm';
+export function StarRating({ rating, reviews, size = "sm" }) {
+  const s = size === "sm" ? "text-xs" : "text-sm";
   return (
     <div className="flex items-center gap-1">
       <div className="flex">
         {[...Array(5)].map((_, i) => (
-          <FiStar key={i} className={`${s} ${i < Math.round(rating) ? 'text-amber-400 fill-current' : 'text-gray-200'}`} />
+          <FiStar
+            key={i}
+            className={`${s} ${i < Math.round(rating) ? "text-amber-400 fill-current" : "text-gray-200"}`}
+          />
         ))}
       </div>
       {reviews !== undefined && <span className={`${s} text-gray-400`}>({reviews})</span>}
@@ -55,9 +62,13 @@ export function StarRating({ rating, reviews, size = 'sm' }) {
 export function StarInput({ value, onChange }) {
   return (
     <div className="flex gap-1">
-      {[1,2,3,4,5].map(n => (
-        <button key={n} type="button" onClick={() => onChange(n)}
-          className={`text-2xl transition-colors ${n <= value ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300'}`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          className={`text-2xl transition-colors ${n <= value ? "text-amber-400" : "text-gray-300 hover:text-amber-300"}`}
+        >
           ★
         </button>
       ))}
@@ -71,25 +82,39 @@ export function Pagination({ page, pages, onPage }) {
   return (
     <div className="flex items-center justify-center gap-2 mt-8">
       <button
-        onClick={() => onPage(page - 1)} disabled={page === 1}
-        className="btn-secondary px-4 py-2 text-sm disabled:opacity-40">
+        onClick={() => onPage(page - 1)}
+        disabled={page === 1}
+        className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
+      >
         ← Prev
       </button>
       <div className="flex items-center gap-1">
         {Array.from({ length: Math.min(pages, 5) }, (_, i) => {
-          const p = pages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= pages - 2 ? pages - 4 + i : page - 2 + i;
+          const p =
+            pages <= 5
+              ? i + 1
+              : page <= 3
+                ? i + 1
+                : page >= pages - 2
+                  ? pages - 4 + i
+                  : page - 2 + i;
           return (
-            <button key={p} onClick={() => onPage(p)}
+            <button
+              key={p}
+              onClick={() => onPage(p)}
               className={`w-9 h-9 rounded-xl text-sm font-medium transition-colors
-                ${p === page ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                ${p === page ? "bg-primary-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            >
               {p}
             </button>
           );
         })}
       </div>
       <button
-        onClick={() => onPage(page + 1)} disabled={page === pages}
-        className="btn-secondary px-4 py-2 text-sm disabled:opacity-40">
+        onClick={() => onPage(page + 1)}
+        disabled={page === pages}
+        className="btn-secondary px-4 py-2 text-sm disabled:opacity-40"
+      >
         Next →
       </button>
     </div>
@@ -100,9 +125,11 @@ export function Pagination({ page, pages, onPage }) {
 export function EmptyState({ icon: Icon, title, description, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-      {Icon && <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-        <Icon className="text-2xl text-gray-300" />
-      </div>}
+      {Icon && (
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+          <Icon className="text-2xl text-gray-300" />
+        </div>
+      )}
       <div>
         <p className="font-semibold text-gray-700 text-lg">{title}</p>
         {description && <p className="text-gray-400 text-sm mt-1">{description}</p>}
@@ -119,9 +146,11 @@ export function ErrorMessage({ message, onRetry }) {
       <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center">
         <span className="text-2xl">⚠️</span>
       </div>
-      <p className="text-red-600 font-medium">{message || 'Something went wrong'}</p>
+      <p className="text-red-600 font-medium">{message || "Something went wrong"}</p>
       {onRetry && (
-        <button onClick={onRetry} className="btn-primary px-6 py-2.5 text-sm">Try Again</button>
+        <button onClick={onRetry} className="btn-primary px-6 py-2.5 text-sm">
+          Try Again
+        </button>
       )}
     </div>
   );

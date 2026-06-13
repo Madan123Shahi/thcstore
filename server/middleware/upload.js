@@ -2,7 +2,7 @@ import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../config/cloudinary.js";
 import { AppError } from "../utils/appError.js";
-
+import { MAX_IMAGE_SIZE_MB } from "../../shared/constants.js";
 // ─────────────────────────────────────────────
 // Driver License Upload
 // Private — not publicly accessible
@@ -19,17 +19,12 @@ const dlStorage = new CloudinaryStorage({
 export const uploadDL = multer({
   storage: dlStorage,
   fileFilter: (req, file, cb) => {
-    const allowed = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ];
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     allowed.includes(file.mimetype)
       ? cb(null, true)
       : cb(new AppError("Only images and PDF allowed", 400), false);
   },
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5MB
+  limits: { fileSize: MAX_IMAGE_SIZE_MB, files: 1 }, // 5MB
 }).single("uploadDL");
 
 // ─────────────────────────────────────────────
@@ -38,7 +33,7 @@ export const uploadDL = multer({
 // ─────────────────────────────────────────────
 const productStorage = new CloudinaryStorage({
   cloudinary,
-  params: async (req, file) => ({
+  params: async (_req, _file) => ({
     folder: "products",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     // ✅ Auto-compress on upload — Cloudinary handles this
@@ -84,7 +79,7 @@ export const uploadProduct = multer({
       : cb(new AppError("Only JPEG, PNG, WEBP allowed", 400), false);
   },
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB per file
+    fileSize: MAX_IMAGE_SIZE_MB, // 5MB per file
     files: 5, // max 5 images per product
   },
 }).array("images", 5);

@@ -2,11 +2,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import User from "../models/User.js";
 import { asyncHandler, AppError } from "../utils/appError.js";
-import {
-  sendOrderConfirmationEmail,
-  sendWelcomeEmail,
-  sendPasswordResetEmail,
-} from "../services/emailService.js";
+import { sendWelcomeEmail, sendPasswordResetEmail } from "../services/emailService.js";
+import { PASSWORD_RESET_EXPIRES } from "../../shared/constants.js";
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -37,16 +34,14 @@ export const register = asyncHandler(async (req, res) => {
   if (!name || !email || !password || !phone || !dob || !uploadDL)
     throw new AppError(
       "Name, email, password, phone number, date of birth and driver license are required",
-      400,
+      400
     );
 
   const exists = await User.findOne({ $or: [{ email }, { phone }] });
   if (exists) {
     throw new AppError(
-      exists.email === email
-        ? "Email already registered"
-        : "Phone number already registered",
-      400,
+      exists.email === email ? "Email already registered" : "Phone number already registered",
+      400
     );
   }
 
@@ -69,8 +64,7 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { emailOrPhone, password } = req.body;
 
-  if (!emailOrPhone || !password)
-    throw new AppError("Email/Phone and password are required", 400);
+  if (!emailOrPhone || !password) throw new AppError("Email/Phone and password are required", 400);
 
   if (typeof emailOrPhone !== "string" || typeof password !== "string")
     throw new AppError("Invalid input", 400);
@@ -89,10 +83,7 @@ export const login = asyncHandler(async (req, res) => {
 });
 
 export const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).populate(
-    "wishlist",
-    "name images price",
-  );
+  const user = await User.findById(req.user._id).populate("wishlist", "name images price");
   if (!user) throw new AppError("User not found", 404);
   res.json(user);
 });
@@ -102,7 +93,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { name, phone, dateOfBirth },
-    { new: true, runValidators: true },
+    { new: true, runValidators: true }
   );
   if (!user) throw new AppError("User not found", 404);
   res.json(user);
@@ -139,14 +130,11 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
   // ✅ Generate secure random token
   const resetToken = crypto.randomBytes(32).toString("hex");
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(resetToken)
-    .digest("hex");
+  const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
   // ✅ Save hashed token + expiry to user
   user.passwordResetToken = hashedToken;
-  user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  user.passwordResetExpires = Date.now() + PASSWORD_RESET_EXPIRES; // 1 hour
   await user.save({ validateBeforeSave: false });
 
   // ✅ Send reset email with plain token (not hashed)
@@ -210,8 +198,7 @@ export const saveFCMToken = asyncHandler(async (req, res) => {
 });
 
 export const addAddress = asyncHandler(async (req, res) => {
-  const { label, name, line1, line2, city, state, pincode, phone, isDefault } =
-    req.body;
+  const { label, name, line1, line2, city, state, pincode, phone, isDefault } = req.body;
   const user = await User.findById(req.user._id);
   if (!user) throw new AppError("User not found", 404);
   if (isDefault) user.addresses.forEach((a) => (a.isDefault = false));

@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiX, FiLoader } from 'react-icons/fi';
-import { getImageUrl, formatPrice } from '../../utils/helpers';
-import api from '../../utils/api';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { FiSearch, FiX, FiLoader } from "react-icons/fi";
+import { getImageUrl, formatPrice } from "../../utils/helpers";
+import { SEARCH_DEBOUNCE_MS, AUTOCOMPLETE_LIMIT } from "../../../../shared/constants"; // ✅ import constants
+import api from "../../utils/api";
 
 // ─────────────────────────────────────────────
 // ✅ Debounce hook — delays API call until user
-// stops typing for 300ms (prevents spamming)
+// stops typing (prevents spamming)
 // ─────────────────────────────────────────────
-const useDebounce = (value, delay = 300) => {
+const useDebounce = (value, delay = SEARCH_DEBOUNCE_MS) => {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(value), delay);
@@ -17,20 +18,20 @@ const useDebounce = (value, delay = 300) => {
   return debounced;
 };
 
-export default function SearchBar({ className = '' }) {
-  const navigate  = useNavigate();
-  const inputRef  = useRef(null);
+export default function SearchBar({ className = "" }) {
+  const navigate = useNavigate();
+  const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  const [query,       setQuery]       = useState('');
+  const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
-  const [loading,     setLoading]     = useState(false);
-  const [open,        setOpen]        = useState(false);
-  const [activeIdx,   setActiveIdx]   = useState(-1); // keyboard nav
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
 
-  const debouncedQuery = useDebounce(query, 300); // ✅ 300ms debounce
+  const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS); // ✅ from constants
 
-  // ─── Fetch autocomplete suggestions ──────────────────────────────────────
+  // ─── Fetch autocomplete suggestions ──────────────────────────
   useEffect(() => {
     if (debouncedQuery.trim().length < 2) {
       setSuggestions([]);
@@ -41,8 +42,11 @@ export default function SearchBar({ className = '' }) {
     const fetchSuggestions = async () => {
       setLoading(true);
       try {
-        const { data } = await api.get(`/products/autocomplete?q=${encodeURIComponent(debouncedQuery)}`);
-        setSuggestions(data.suggestions || []);
+        const { data } = await api.get(
+          `/products/autocomplete?q=${encodeURIComponent(debouncedQuery)}`
+        );
+        // ✅ AUTOCOMPLETE_LIMIT from constants — no magic number
+        setSuggestions((data.suggestions || []).slice(0, AUTOCOMPLETE_LIMIT));
         setOpen(true);
         setActiveIdx(-1);
       } catch {
@@ -55,59 +59,63 @@ export default function SearchBar({ className = '' }) {
     fetchSuggestions();
   }, [debouncedQuery]);
 
-  // ─── Close dropdown on outside click ─────────────────────────────────────
+  // ─── Close dropdown on outside click ─────────────────────────
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-        inputRef.current    && !inputRef.current.contains(e.target)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target)
       ) {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ─── Submit search — go to products page ─────────────────────────────────
-  const handleSubmit = useCallback((e) => {
-    e?.preventDefault();
-    const term = query.trim();
-    if (!term) return;
-    setOpen(false);
-    navigate(`/products?search=${encodeURIComponent(term)}`);
-  }, [query, navigate]);
+  // ─── Submit search ────────────────────────────────────────────
+  const handleSubmit = useCallback(
+    (e) => {
+      e?.preventDefault();
+      const term = query.trim();
+      if (!term) return;
+      setOpen(false);
+      navigate(`/products?search=${encodeURIComponent(term)}`);
+    },
+    [query, navigate]
+  );
 
-  // ─── Click suggestion ─────────────────────────────────────────────────────
-  const handleSuggestionClick = useCallback((suggestion) => {
-    setQuery(suggestion.name);
-    setOpen(false);
-    navigate(`/products/${suggestion.slug || suggestion._id}`);
-  }, [navigate]);
+  // ─── Click suggestion ─────────────────────────────────────────
+  const handleSuggestionClick = useCallback(
+    (suggestion) => {
+      setQuery(suggestion.name);
+      setOpen(false);
+      navigate(`/products/${suggestion.slug || suggestion._id}`);
+    },
+    [navigate]
+  );
 
-  // ─── Keyboard navigation ──────────────────────────────────────────────────
+  // ─── Keyboard navigation ──────────────────────────────────────
   const handleKeyDown = (e) => {
     if (!open || suggestions.length === 0) return;
-
-    if (e.key === 'ArrowDown') {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIdx(i => Math.min(i + 1, suggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
+      setActiveIdx((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIdx(i => Math.max(i - 1, -1));
-    } else if (e.key === 'Enter') {
-      if (activeIdx >= 0) {
-        handleSuggestionClick(suggestions[activeIdx]);
-      } else {
-        handleSubmit();
-      }
-    } else if (e.key === 'Escape') {
+      setActiveIdx((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      if (activeIdx >= 0) handleSuggestionClick(suggestions[activeIdx]);
+      else handleSubmit();
+    } else if (e.key === "Escape") {
       setOpen(false);
     }
   };
 
   const clearSearch = () => {
-    setQuery('');
+    setQuery("");
     setSuggestions([]);
     setOpen(false);
     inputRef.current?.focus();
@@ -115,7 +123,7 @@ export default function SearchBar({ className = '' }) {
 
   return (
     <div className={`relative ${className}`}>
-      {/* ── Search input ── */}
+      {/* Search input */}
       <form onSubmit={handleSubmit} className="relative">
         <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none" />
         <input
@@ -129,20 +137,22 @@ export default function SearchBar({ className = '' }) {
           className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all"
           autoComplete="off"
         />
-
-        {/* Clear button or loader */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           {loading ? (
             <FiLoader className="text-gray-400 text-sm animate-spin" />
           ) : query ? (
-            <button type="button" onClick={clearSearch} className="text-gray-400 hover:text-gray-600">
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="text-gray-400 hover:text-gray-600"
+            >
               <FiX className="text-sm" />
             </button>
           ) : null}
         </div>
       </form>
 
-      {/* ── Autocomplete dropdown ── */}
+      {/* Autocomplete dropdown */}
       {open && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
@@ -153,9 +163,8 @@ export default function SearchBar({ className = '' }) {
               key={s._id}
               onClick={() => handleSuggestionClick(s)}
               className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0
-                ${activeIdx === i ? 'bg-primary-50' : ''}`}
+                ${activeIdx === i ? "bg-primary-50" : ""}`}
             >
-              {/* ✅ Product thumbnail in dropdown */}
               {s.image && (
                 <img
                   src={getImageUrl(s.image)}
@@ -174,8 +183,6 @@ export default function SearchBar({ className = '' }) {
               )}
             </button>
           ))}
-
-          {/* ✅ "See all results" footer */}
           <button
             onClick={handleSubmit}
             className="w-full px-4 py-3 text-sm text-primary-600 font-semibold bg-primary-50 hover:bg-primary-100 transition-colors text-center"
@@ -185,11 +192,17 @@ export default function SearchBar({ className = '' }) {
         </div>
       )}
 
-      {/* ── No results state ── */}
+      {/* No results */}
       {open && !loading && debouncedQuery.length >= 2 && suggestions.length === 0 && (
-        <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-50 p-4 text-center">
+        <div
+          ref={dropdownRef}
+          className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-50 p-4 text-center"
+        >
           <p className="text-sm text-gray-400">No results for "{debouncedQuery}"</p>
-          <button onClick={handleSubmit} className="text-xs text-primary-600 font-medium mt-1 hover:underline">
+          <button
+            onClick={handleSubmit}
+            className="text-xs text-primary-600 font-medium mt-1 hover:underline"
+          >
             Search anyway →
           </button>
         </div>

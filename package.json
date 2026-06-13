@@ -1,6 +1,31 @@
 {
+  "name": "thcstore",
+  "private": true,
   "type": "module",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm run lint:server && npm run lint:server",
+    "lint:server": "cd server  && npm run lint",
+    "lint:client": "cd client && npm run lint",
+    "format": "npm run format:server && npm run format:server",
+    "format:backend": "cd server  && npm run format",
+    "format:frontend": "cd client && npm run format"
+  },
+  "lint-staged": {
+    "server/**/*.js": [
+      "npx eslint --fix",
+      "npx prettier --write"
+    ],
+    "client/src/**/*.{js,jsx}": [
+      "npx eslint --fix",
+      "npx prettier --write"
+    ]
+  },
   "dependencies": {
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0"
   }
 }

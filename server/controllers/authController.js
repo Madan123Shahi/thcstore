@@ -5,19 +5,22 @@ import { asyncHandler, AppError } from "../utils/appError.js";
 import { sendWelcomeEmail, sendPasswordResetEmail } from "../services/emailService.js";
 import { PASSWORD_RESET_EXPIRES } from "../../shared/constants.js";
 
-const signToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || "30d",
-  });
+const signAccessToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "15m" });
 
-const sendTokenCookie = (res, statusCode, user, token) => {
-  res.cookie("token", token, {
+const signRefreshToken = (id) =>
+  jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
+
+const sendAuthResponse = (res, statusCode, user, accessToken, refreshToken) => {
+  res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/api/auth", // restrict cookie to auth routes only
   });
+
   res.status(statusCode).json({
+    accessToken,
     user: {
       _id: user._id,
       name: user.name,
@@ -26,6 +29,24 @@ const sendTokenCookie = (res, statusCode, user, token) => {
     },
   });
 };
+
+export const refresh = asyncHandler(async (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token) throw new AppError("No refresh token provided", 401);
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  } catch {
+    throw new AppError("Invalid or expired refresh token", 403);
+  }
+
+  const user = await User.findById(decoded.id);
+  if (!user) throw new AppError("User not found", 404);
+
+  const accessToken = signAccessToken(user._id);
+  res.json({ accessToken });
+});
 
 export const register = asyncHandler(async (req, res) => {
   const { name, email, password, phone, dob } = req.body;
@@ -57,8 +78,9 @@ export const register = asyncHandler(async (req, res) => {
   // ✅ Send welcome email — don't await, non-blocking
   sendWelcomeEmail(user).catch(console.error);
 
-  const token = signToken(user._id);
-  sendTokenCookie(res, 201, user, token);
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+  sendAuthResponse(res, 201, user, accessToken, refreshToken);
 });
 
 export const login = asyncHandler(async (req, res) => {
@@ -78,8 +100,9 @@ export const login = asyncHandler(async (req, res) => {
   const isMatch = await user.matchPassword(password);
   if (!isMatch) throw new AppError("Invalid credentials", 401);
 
-  const token = signToken(user._id);
-  sendTokenCookie(res, 200, user, token);
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+  sendAuthResponse(res, 201, user, accessToken, refreshToken);
 });
 
 export const getMe = asyncHandler(async (req, res) => {
@@ -179,8 +202,9 @@ export const resetPassword = asyncHandler(async (req, res) => {
   await user.save();
 
   // ✅ Log user in automatically after reset
-  const jwtToken = signToken(user._id);
-  sendTokenCookie(res, 200, user, jwtToken);
+  const accessToken = signAccessToken(user._id);
+  const refreshToken = signRefreshToken(user._id);
+  sendAuthResponse(res, 201, user, accessToken, refreshToken);
 });
 
 // ─────────────────────────────────────────────
@@ -229,6 +253,12 @@ export const toggleWishlist = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
-  res.cookie("token", "", { httpOnly: true, expires: new Date(0) });
+  res.cookie("refreshToken", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/api/auth",
+    expires: new Date(0),
+  });
   res.json({ message: "Logged out successfully" });
 });

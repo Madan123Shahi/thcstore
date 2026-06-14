@@ -2,23 +2,40 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { asyncHandler, AppError } from "../utils/appError.js"; // ✅ your custom utils
 
+// export const protect = asyncHandler(async (req, res, next) => {
+//   const token = req.cookies.token; // ✅ read from httpOnly cookie
+
+//   if (!token) throw new AppError("Not authorized, no token", 401);
+
+//   const decoded = jwt.verify(token, process.env.JWT_SECRET); // ✅ throws automatically if invalid/expired
+
+//   const user = await User.findById(decoded.id).select("-password");
+//   if (!user) throw new AppError("User no longer exists", 401); // ✅ handles deleted user edge case
+
+//   req.user = user;
+//   next();
+// });
+
 export const protect = asyncHandler(async (req, res, next) => {
-  const token = req.cookies.token; // ✅ read from httpOnly cookie
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
 
   if (!token) throw new AppError("Not authorized, no token", 401);
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET); // ✅ throws automatically if invalid/expired
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    throw new AppError("Not authorized, token failed", 401);
+  }
 
-  const user = await User.findById(decoded.id).select("-password");
-  if (!user) throw new AppError("User no longer exists", 401); // ✅ handles deleted user edge case
-
-  req.user = user;
+  req.user = await User.findById(decoded.id);
+  if (!req.user) throw new AppError("User not found", 404);
   next();
 });
 
 export const admin = (req, res, next) => {
-  if (req.user?.role !== "admin")
-    throw new AppError("Not authorized, admin only", 403);
+  if (req.user?.role !== "admin") throw new AppError("Not authorized, admin only", 403);
   next();
 };
 

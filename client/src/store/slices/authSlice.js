@@ -2,71 +2,68 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../utils/api";
 
 // ───────────────── REGISTER ─────────────────
-export const register = createAsyncThunk(
-  "auth/register",
-  async (data, { rejectWithValue }) => {
-    try {
-      const res = await api.post("/auth/register", data);
-      return res.data;
-    } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.error || "Registration failed",
-      );
-    }
-  },
-);
+export const register = createAsyncThunk("auth/register", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.post("/auth/register", data);
+    return res.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.error || "Registration failed");
+  }
+});
 
 // ───────────────── LOGIN ─────────────────
-export const login = createAsyncThunk(
-  "auth/login",
-  async (data, { rejectWithValue }) => {
-    try {
-      const res = await api.post("/auth/login", data);
-      return res.data;
-    } catch (err) {
-      console.log("full err:", err);
-      console.log("err.response:", err.response);
-      console.log("err.response.data:", err.response?.data);
-      console.log("err.response.status:", err.response?.status);
-      if (!err.response) {
-        return rejectWithValue("Server not connected");
-      }
-
-      if (err.response.status === 500) {
-        return rejectWithValue("Server error. Please try again later.");
-      }
-
-      return rejectWithValue(err.response?.data?.error || "Login failed");
+export const login = createAsyncThunk("auth/login", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.post("/auth/login", data);
+    return res.data;
+  } catch (err) {
+    console.log("full err:", err);
+    console.log("err.response:", err.response);
+    console.log("err.response.data:", err.response?.data);
+    console.log("err.response.status:", err.response?.status);
+    if (!err.response) {
+      return rejectWithValue("Server not connected");
     }
-  },
-);
+
+    if (err.response.status === 500) {
+      return rejectWithValue("Server error. Please try again later.");
+    }
+
+    return rejectWithValue(err.response?.data?.error || "Login failed");
+  }
+});
 
 // ───────────────── LOGOUT ─────────────────
-export const logoutUser = createAsyncThunk(
-  "auth/logout",
+export const logoutUser = createAsyncThunk("auth/logout", async (_, { rejectWithValue }) => {
+  try {
+    await api.post("/auth/logout");
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.error || "Logout failed");
+  }
+});
+
+// ───────────────── REFRESH SESSION (on app load) ─────────────────
+export const refreshSession = createAsyncThunk(
+  "auth/refreshSession",
   async (_, { rejectWithValue }) => {
     try {
-      await api.post("/auth/logout");
+      const res = await api.post("/auth/refresh");
+      return res.data; // { accessToken }
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || "Logout failed");
+      return rejectWithValue(err.response?.data?.error || "No active session");
     }
-  },
+  }
 );
 
 // ───────────────── FETCH USER ─────────────────
-export const fetchMe = createAsyncThunk(
-  "auth/fetchMe",
-  async (_, { rejectWithValue }) => {
-    try {
-      const res = await api.get("/auth/me");
-      return res.data;
-    } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.error || "Failed to fetch user",
-      );
-    }
-  },
-);
+export const fetchMe = createAsyncThunk("auth/fetchMe", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get("/auth/me");
+    return res.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.error || "Failed to fetch user");
+  }
+});
 
 // ───────────────── UPDATE PROFILE ─────────────────
 export const updateProfile = createAsyncThunk(
@@ -78,23 +75,18 @@ export const updateProfile = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(err.response?.data?.error || "Update failed");
     }
-  },
+  }
 );
 
 // ───────────────── ADD ADDRESS ─────────────────
-export const addAddress = createAsyncThunk(
-  "auth/addAddress",
-  async (data, { rejectWithValue }) => {
-    try {
-      const res = await api.post("/auth/address", data);
-      return res.data;
-    } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.error || "Failed to add address",
-      );
-    }
-  },
-);
+export const addAddress = createAsyncThunk("auth/addAddress", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.post("/auth/address", data);
+    return res.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.error || "Failed to add address");
+  }
+});
 
 // ───────────────── SLICE ─────────────────
 const authSlice = createSlice({
@@ -102,6 +94,7 @@ const authSlice = createSlice({
 
   initialState: {
     user: null,
+    accessToken: null, // ✅ in-memory only — never persisted
 
     registerLoading: false,
     loginLoading: false,
@@ -109,6 +102,7 @@ const authSlice = createSlice({
     fetchMeLoading: false,
     updateProfileLoading: false,
     addAddressLoading: false,
+    refreshLoading: false,
 
     // keeping errors in state for other potential uses
     registerError: null,
@@ -122,6 +116,11 @@ const authSlice = createSlice({
   reducers: {
     clearAuth(state) {
       state.user = null;
+      state.accessToken = null;
+    },
+
+    setAccessToken(state, action) {
+      state.accessToken = action.payload;
     },
 
     clearError(state) {
@@ -145,6 +144,7 @@ const authSlice = createSlice({
       .addCase(register.fulfilled, (state, action) => {
         state.registerLoading = false;
         state.user = action.payload.user;
+        state.accessToken = action.payload.accessToken;
       })
       .addCase(register.rejected, (state, action) => {
         state.registerLoading = false;
@@ -159,6 +159,7 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.loginLoading = false;
         state.user = action.payload.user;
+        state.accessToken = action.payload.accessToken;
       })
       .addCase(login.rejected, (state, action) => {
         state.loginLoading = false;
@@ -173,10 +174,26 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.logoutLoading = false;
         state.user = null;
+        state.accessToken = null;
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.logoutLoading = false;
         state.logoutError = action.payload;
+        state.user = null;
+        state.accessToken = null;
+      })
+
+      // ───────── REFRESH SESSION ─────────
+      .addCase(refreshSession.pending, (state) => {
+        state.refreshLoading = true;
+      })
+      .addCase(refreshSession.fulfilled, (state, action) => {
+        state.refreshLoading = false;
+        state.accessToken = action.payload.accessToken;
+      })
+      .addCase(refreshSession.rejected, (state) => {
+        state.refreshLoading = false;
+        state.accessToken = null;
         state.user = null;
       })
 
@@ -227,6 +244,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuth, clearError } = authSlice.actions;
+export const { clearAuth, clearError, setAccessToken } = authSlice.actions;
 
 export default authSlice.reducer;

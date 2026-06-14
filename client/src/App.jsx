@@ -2,7 +2,7 @@ import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { fetchMe } from "./store/slices/authSlice";
+import { fetchMe, refreshSession } from "./store/slices/authSlice";
 import { useAuth } from "./hooks";
 import ErrorBoundary from "./components/common/ErrorBoundary"; // ✅
 
@@ -81,7 +81,13 @@ export default function App() {
   const { fetchMeLoading } = useAuth();
 
   useEffect(() => {
-    dispatch(fetchMe());
+    // ✅ Try to restore session from httpOnly refresh cookie first.
+    // Only fetch the user profile if a valid access token was issued.
+    dispatch(refreshSession()).then((res) => {
+      if (res.meta.requestStatus === "fulfilled") {
+        dispatch(fetchMe());
+      }
+    });
   }, [dispatch]);
 
   return (

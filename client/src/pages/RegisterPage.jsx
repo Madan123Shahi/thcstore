@@ -7,10 +7,7 @@ import { register, clearError } from "../store/slices/authSlice";
 import toast from "react-hot-toast";
 
 // ── Import the shared schema (same file your backend uses) ────────────────────
-import {
-  registerSchema,
-  validateDLFile,
-} from "../../../shared/schemas/auth.schema.js";
+import { registerSchema, validateDLFile } from "../../../shared/schemas/auth.schema.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -27,8 +24,7 @@ const MAX_FILE_SIZE_MB = 5;
 
 const getPasswordStrength = (pw) => {
   if (!pw || pw.length < 8) return 0;
-  return [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pw))
-    .length; // 1–4
+  return [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length; // 1–4
 };
 
 const getMaxDOB = () => {
@@ -91,8 +87,7 @@ export default function RegisterPage() {
       return;
     }
     setFile(picked);
-    if (errors.uploadDL)
-      setErrors((prev) => ({ ...prev, uploadDL: undefined }));
+    if (errors.uploadDL) setErrors((prev) => ({ ...prev, uploadDL: undefined }));
   };
 
   // ── Validation via Zod ────────────────────────────────────────────────────
@@ -157,8 +152,7 @@ export default function RegisterPage() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const passwordsMatch =
-    form.confirmPassword.length > 0 && form.password === form.confirmPassword;
+  const passwordsMatch = form.confirmPassword.length > 0 && form.password === form.confirmPassword;
   const passwordsMismatch =
     form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
 
@@ -172,12 +166,8 @@ export default function RegisterPage() {
           <div className="w-14 h-14 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
             <GiLeafSkeleton className="text-white text-2xl" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-gray-900">
-            Create Account
-          </h1>
-          <p className="text-gray-400 mt-1 text-sm">
-            Join thousands on their wellness journey
-          </p>
+          <h1 className="font-display text-3xl font-bold text-gray-900">Create Account</h1>
+          <p className="text-gray-400 mt-1 text-sm">Join thousands on their wellness journey</p>
         </div>
 
         <div className="card p-8">
@@ -220,7 +210,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Date of Birth */}
-            <Field label="Date of Birth" required error={errors.dob}>
+            <Field label="Date of Birth" error={errors.dob}>
               <input
                 type="date"
                 value={form.dob}
@@ -231,11 +221,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Driver Licence Upload */}
-            <Field
-              label="Upload DL or State ID"
-              required
-              error={errors.uploadDL}
-            >
+            <Field label="Upload DL or State ID" required error={errors.uploadDL}>
               <input
                 type="file"
                 accept="image/*,.pdf"
@@ -245,9 +231,7 @@ export default function RegisterPage() {
               {file ? (
                 <p className="text-xs text-primary-600 mt-1">
                   ✓ {file.name}{" "}
-                  <span className="text-gray-400">
-                    ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                  </span>
+                  <span className="text-gray-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                 </p>
               ) : (
                 <p className="text-xs text-gray-400 mt-1">
@@ -293,9 +277,7 @@ export default function RegisterPage() {
                     ))}
                   </div>
                   <p className="text-xs text-gray-400">
-                    {strength > 0
-                      ? STRENGTH_LEVELS[Math.min(strength - 1, 3)].label
-                      : ""}
+                    {strength > 0 ? STRENGTH_LEVELS[Math.min(strength - 1, 3)].label : ""}
                   </p>
                   <ul className="mt-1.5 space-y-0.5">
                     {[
@@ -335,11 +317,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Confirm Password */}
-            <Field
-              label="Confirm Password"
-              required
-              error={errors.confirmPassword}
-            >
+            <Field label="Confirm Password" required error={errors.confirmPassword}>
               <div className="relative">
                 <input
                   type={showConfirmPass ? "text" : "password"}
@@ -356,9 +334,7 @@ export default function RegisterPage() {
                     type="button"
                     onClick={() => setShowConfirmPass((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    aria-label={
-                      showConfirmPass ? "Hide password" : "Show password"
-                    }
+                    aria-label={showConfirmPass ? "Hide password" : "Show password"}
                   >
                     {showConfirmPass ? <FiEyeOff /> : <FiEye />}
                   </button>
@@ -366,9 +342,7 @@ export default function RegisterPage() {
               </div>
               {/* inline mismatch hint (before submit) */}
               {passwordsMismatch && !errors.confirmPassword && (
-                <p className="text-xs text-red-500 mt-1">
-                  Passwords do not match
-                </p>
+                <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
               )}
             </Field>
 
@@ -381,8 +355,7 @@ export default function RegisterPage() {
                 className="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-400"
               />
               <span className="text-xs text-gray-500 leading-relaxed">
-                I confirm I am <strong>18 years or older</strong> and agree to
-                the{" "}
+                I confirm I am <strong>18 years or older</strong> and agree to the{" "}
                 <Link to="/terms" className="text-primary-600 underline">
                   Terms of Service
                 </Link>
@@ -390,8 +363,7 @@ export default function RegisterPage() {
                 <Link to="/privacy" className="text-primary-600 underline">
                   Privacy Policy
                 </Link>
-                , and understand that prescription products require a valid
-                doctor's prescription.
+                , and understand that prescription products require a valid doctor's prescription.
               </span>
             </label>
 
@@ -414,10 +386,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-gray-500 mt-5">
             Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-primary-600 font-semibold hover:text-primary-700"
-            >
+            <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">
               Sign in
             </Link>
           </p>

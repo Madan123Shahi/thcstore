@@ -18,6 +18,7 @@ import orderReducer from "./slices/orderSlice";
 import uiReducer from "./slices/uiSlice";
 import wishlistReducer from "./slices/wishlistSlice";
 import couponReducer from "./slices/couponSlice";
+import loyaltyReducer from "./slices/loyaltySlice";
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -28,13 +29,14 @@ const rootReducer = combineReducers({
   ui: uiReducer,
   wishlist: wishlistReducer,
   coupon: couponReducer,
+  loyalty: loyaltyReducer, // ✅ loyalty & referral
 });
 
 const persistConfig = {
   key: "thcstore",
   version: 1,
   storage,
-  whitelist: ["cart", "wishlist", "ui"], // ✅ only persist what's needed
+  whitelist: ["cart", "wishlist", "ui"], // loyalty is NOT persisted — always fetched fresh
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -44,13 +46,9 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // ✅ required for redux-persist — ignore its internal actions
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-        // ✅ increase threshold — 32ms default is too tight for redux-persist overhead
-        // this is dev-only, disabled automatically in production
         warnAfter: 128,
       },
-      // ✅ increase immutability check threshold too — same cause
       immutableCheck: { warnAfter: 128 },
     }),
 });

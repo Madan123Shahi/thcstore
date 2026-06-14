@@ -46,16 +46,35 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     prescriptionUploaded: { type: Boolean, default: false },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
-    fcmTokens: [{ type: String }], // ✅ for push notifications
+    fcmTokens: [{ type: String }],
 
-    // ✅ Password reset fields
+    // ── Loyalty & Referral ──────────────────────────────
+    loyaltyPoints: { type: Number, default: 0, min: 0 },
+    totalPointsEarned: { type: Number, default: 0 },
+    referralCode: { type: String, unique: true, sparse: true },
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    isReferralUsed: { type: Boolean, default: false },
+
+    // ── Password reset ──────────────────────────────────
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
+// ── Auto-generate referral code on new user ─────────────
 userSchema.pre("save", async function (next) {
+  // Generate referral code only once for new users
+  if (this.isNew && !this.referralCode) {
+    this.referralCode = `THC-${this.name
+      .slice(0, 3)
+      .toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  }
+
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();

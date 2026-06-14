@@ -15,6 +15,7 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
+import loyaltyRoutes from "./routes/loyaltyRoutes.js";
 
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
@@ -29,12 +30,9 @@ app.use("/api/payments", paymentRoutes);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:5173",
-      "https://thcstore.vercel.app",
-    ],
+    origin: [process.env.CLIENT_URL || "http://localhost:5173", "https://thcstore.vercel.app"],
     credentials: true,
-  }),
+  })
 );
 
 // Rate limiting
@@ -66,6 +64,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/coupons", couponRoutes);
+app.use("/api/loyalty", loyaltyRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {

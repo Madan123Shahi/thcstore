@@ -14,6 +14,7 @@ jobs:
   server:
     name: Backend Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     env:
       NODE_ENV: test
@@ -51,6 +52,7 @@ jobs:
   client:
     name: Frontend Build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -67,6 +69,10 @@ jobs:
         working-directory: client
         run: npm ci
 
+      - name: Lint frontend
+        working-directory: client
+        run: npm run lint
+
       - name: Build frontend
         working-directory: client
         env:
@@ -78,28 +84,37 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [server, client] # ✅ only deploy if both pass
+    timeout-minutes: 10
+    needs: [server, client]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ✅ Deploy backend to Render
-      # Render auto-deploys on push but we trigger it manually here too
       - name: Deploy backend to Render
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "⏭️ Skipping Render deploy — secret not set"
+            exit 0
+          fi
+          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
+          if [ "$response" != "200" ]; then
+            echo "❌ Render deploy failed with status $response"
+            exit 1
+          fi
           echo "✅ Backend deploy triggered on Render"
 
-      # ✅ Deploy frontend to Vercel
       - name: Deploy frontend to Vercel
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        if: env.VERCEL_TOKEN != ''
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: frontend
+          working-directory: client
           vercel-args: "--prod"

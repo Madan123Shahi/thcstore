@@ -1,24 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiCheck } from "react-icons/fi";
 import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { createOrder } from "../store/slices/orderSlice";
-import { removeCoupon } from "../store/slices/couponSlice"; // ✅
+import { removeCoupon } from "../store/slices/couponSlice";
 import {
   clearCart,
   selectCartItems,
   selectCartSubtotal,
   selectCartShipping,
   selectCartTax,
-  selectCartTotal,
 } from "../store/slices/cartSlice";
+import {
+  fetchLoyaltySummary,
+  redeemLoyaltyPoints,
+  clearLoyaltyMessages,
+} from "../store/slices/loyaltySlice";
 import { formatPrice, getImageUrl, INDIAN_STATES } from "../utils/helpers";
 import CouponInput from "../components/common/CouponInput";
 import toast from "react-hot-toast";
@@ -44,37 +43,219 @@ const PAYMENT_METHODS = [
 const STEPS = ["Shipping", "Payment", "Review"];
 
 // ─────────────────────────────────────────────
+// Loyalty Redeem Panel
+// ─────────────────────────────────────────────
+function LoyaltyRedeemPanel({ onRedeemChange }) {
+  const dispatch = useDispatch();
+  const {
+    loyaltyPoints,
+    discountValue,
+    canRedeem,
+    minRedeemPoints,
+    loading,
+    redeemSuccess,
+    error,
+  } = useSelector((s) => s.loyalty);
+
+  const [pointsToRedeem, setPointsToRedeem] = useState("");
+  const [redeemType, setRedeemType] = useState("discount");
+  const [redeemed, setRedeemed] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchLoyaltySummary());
+    return () => dispatch(clearLoyaltyMessages());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (redeemSuccess) toast.success(redeemSuccess);
+  }, [redeemSuccess]);
+
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  const handleRedeem = async () => {
+    const pts = parseInt(pointsToRedeem, 10);
+    if (!pts || pts < minRedeemPoints) {
+      toast.error(`Minimum ${minRedeemPoints} points required`);
+      return;
+    }
+    if (pts > loyaltyPoints) {
+      toast.error("You don't have enough points");
+      return;
+    }
+    const result = await dispatch(redeemLoyaltyPoints({ points: pts, redeemType }));
+    if (!result.error) {
+      setRedeemed(true);
+      onRedeemChange({
+        points: pts,
+        discountAmount: result.payload.discountAmount,
+        redeemType,
+      });
+    }
+  };
+
+  const handleRemove = () => {
+    setRedeemed(false);
+    setPointsToRedeem("");
+    onRedeemChange(null);
+  };
+
+  if (!canRedeem) {
+    return (
+      <div style={panelStyles.wrapper}>
+        <p style={panelStyles.title}>🌿 Loyalty Points</p>
+        <p style={panelStyles.balance}>
+          You have <strong>{loyaltyPoints}</strong> points
+        </p>
+        <p style={panelStyles.hint}>Earn {minRedeemPoints - loyaltyPoints} more points to redeem</p>
+        <div style={panelStyles.bar}>
+          <div
+            style={{
+              ...panelStyles.fill,
+              width: `${Math.min((loyaltyPoints / minRedeemPoints) * 100, 100)}%`,
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (redeemed) {
+    return (
+      <div style={{ ...panelStyles.wrapper, borderColor: "#86efac" }}>
+        <p style={panelStyles.title}>🌿 Loyalty Points</p>
+        <p style={{ ...panelStyles.balance, color: "#15803d" }}>
+          ✅ {pointsToRedeem} points redeemed!
+        </p>
+        <button style={panelStyles.removeBtn} onClick={handleRemove}>
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={panelStyles.wrapper}>
+      <p style={panelStyles.title}>🌿 Loyalty Points</p>
+      <p style={panelStyles.balance}>
+        Available: <strong>{loyaltyPoints} pts</strong> (≈ ₹{discountValue})
+      </p>
+
+      <div style={panelStyles.row}>
+        <select
+          style={panelStyles.select}
+          value={redeemType}
+          onChange={(e) => setRedeemType(e.target.value)}
+        >
+          <option value="discount">Redeem as discount</option>
+          <option value="shipping">Redeem for free shipping</option>
+        </select>
+      </div>
+
+      <div style={panelStyles.row}>
+        <input
+          style={panelStyles.input}
+          type="number"
+          placeholder={`Min ${minRedeemPoints} points`}
+          value={pointsToRedeem}
+          min={minRedeemPoints}
+          max={loyaltyPoints}
+          onChange={(e) => setPointsToRedeem(e.target.value)}
+        />
+        <button style={panelStyles.redeemBtn} onClick={handleRedeem} disabled={loading}>
+          {loading ? "..." : "Redeem"}
+        </button>
+      </div>
+
+      {pointsToRedeem >= minRedeemPoints && (
+        <p style={panelStyles.hint}>= ₹{Math.floor(pointsToRedeem / 100)} off your order</p>
+      )}
+    </div>
+  );
+}
+
+const panelStyles = {
+  wrapper: {
+    border: "1.5px dashed #86efac",
+    borderRadius: 10,
+    padding: "12px 14px",
+    background: "#f0fdf4",
+    marginBottom: 4,
+  },
+  title: { fontSize: 13, fontWeight: 700, color: "#15803d", margin: "0 0 4px" },
+  balance: { fontSize: 13, color: "#374151", margin: "0 0 6px" },
+  hint: { fontSize: 12, color: "#6b7280", margin: "4px 0 0" },
+  bar: {
+    background: "#d1fae5",
+    borderRadius: 99,
+    height: 6,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  fill: { background: "#15803d", height: "100%", borderRadius: 99 },
+  row: { display: "flex", gap: 8, marginTop: 8 },
+  input: {
+    flex: 1,
+    border: "1px solid #d1d5db",
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 13,
+    outline: "none",
+  },
+  select: {
+    flex: 1,
+    border: "1px solid #d1d5db",
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 13,
+    background: "#fff",
+    outline: "none",
+  },
+  redeemBtn: {
+    background: "#15803d",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  removeBtn: {
+    background: "none",
+    border: "none",
+    color: "#dc2626",
+    fontSize: 12,
+    cursor: "pointer",
+    padding: 0,
+    marginTop: 4,
+  },
+};
+
+// ─────────────────────────────────────────────
 // Inner form — needs Stripe Elements context
 // ─────────────────────────────────────────────
-function CheckoutForm({
-  address,
-  paymentMethod,
-  items,
-  shipping,
-  tax,
-  subtotal,
-  onBack,
-}) {
+function CheckoutForm({ address, paymentMethod, items, shipping, tax, subtotal, onBack }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const stripe = useStripe();
   const elements = useElements();
 
   const { loading } = useSelector((s) => s.orders);
-  const { applied, code, discountAmount, discountType } = useSelector(
-    (s) => s.coupon,
-  ); // ✅
+  const { applied, code, discountAmount, discountType } = useSelector((s) => s.coupon);
   const [paying, setPaying] = useState(false);
+  const [loyaltyRedeem, setLoyaltyRedeem] = useState(null);
 
-  // ✅ Final total after coupon discount
-  const finalTotal = Math.max(
-    0,
-    subtotal +
-      (discountType === "free_shipping" ? 0 : shipping) +
-      tax -
-      (discountType !== "free_shipping" ? discountAmount : 0),
-  );
-  const finalShipping = discountType === "free_shipping" ? 0 : shipping;
+  // ── Compute final total with coupon + loyalty ───────────────────────────
+  const couponShippingFree = discountType === "free_shipping";
+  const couponDiscount = couponShippingFree ? 0 : discountAmount;
+  const loyaltyDiscount =
+    loyaltyRedeem?.redeemType === "discount" ? loyaltyRedeem.discountAmount : 0;
+  const loyaltyShippingFree = loyaltyRedeem?.redeemType === "shipping";
+
+  const finalShipping = couponShippingFree || loyaltyShippingFree ? 0 : shipping;
+  const finalTotal = Math.max(0, subtotal + finalShipping + tax - couponDiscount - loyaltyDiscount);
 
   const handlePlaceOrder = async () => {
     const orderPayload = {
@@ -84,7 +265,7 @@ function CheckoutForm({
       })),
       shippingAddress: address,
       paymentMethod,
-      couponCode: applied ? code : undefined, // ✅ send coupon to backend
+      couponCode: applied ? code : undefined,
     };
 
     // ── COD ──────────────────────────────────
@@ -92,7 +273,7 @@ function CheckoutForm({
       const res = await dispatch(createOrder(orderPayload));
       if (!res.error) {
         dispatch(clearCart());
-        dispatch(removeCoupon()); // ✅ clear coupon after order
+        dispatch(removeCoupon());
         navigate(`/order-success/${res.payload._id}`);
       } else {
         toast.error(res.payload || "Failed to place order");
@@ -107,15 +288,12 @@ function CheckoutForm({
       const { data } = await api.post("/payments/create-payment-intent", {
         totalPrice: finalTotal,
       });
-      const { error, paymentIntent } = await stripe.confirmCardPayment(
-        data.clientSecret,
-        {
-          payment_method: {
-            card: elements.getElement(CardElement),
-            billing_details: { name: address.name },
-          },
+      const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement),
+          billing_details: { name: address.name },
         },
-      );
+      });
 
       if (error) {
         toast.error(error.message || "Payment failed");
@@ -124,11 +302,11 @@ function CheckoutForm({
       }
 
       const res = await dispatch(
-        createOrder({ ...orderPayload, paymentIntentId: paymentIntent.id }),
+        createOrder({ ...orderPayload, paymentIntentId: paymentIntent.id })
       );
       if (!res.error) {
         dispatch(clearCart());
-        dispatch(removeCoupon()); // ✅ clear coupon after order
+        dispatch(removeCoupon());
         navigate(`/order-success/${res.payload._id}`);
       } else {
         toast.error(res.payload || "Order creation failed");
@@ -144,15 +322,11 @@ function CheckoutForm({
 
   return (
     <div className="card p-6 space-y-5">
-      <h2 className="font-display font-bold text-gray-900 text-xl">
-        Review Your Order
-      </h2>
+      <h2 className="font-display font-bold text-gray-900 text-xl">Review Your Order</h2>
 
       {/* Shipping summary */}
       <div className="bg-gray-50 rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">
-          Shipping to
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Shipping to</h3>
         <p className="text-sm text-gray-600">{address.name}</p>
         <p className="text-sm text-gray-600">
           {address.line1}
@@ -169,16 +343,12 @@ function CheckoutForm({
         {items.map(({ product, quantity }) => (
           <div key={product._id} className="flex gap-3 items-center">
             <img
-              src={getImageUrl(
-                product.images?.[0]?.thumbnail || product.images?.[0]?.url,
-              )}
+              src={getImageUrl(product.images?.[0]?.thumbnail || product.images?.[0]?.url)}
               alt={product.name}
               className="w-12 h-12 rounded-lg object-cover bg-gray-100 shrink-0"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 line-clamp-1">
-                {product.name}
-              </p>
+              <p className="text-sm font-medium text-gray-800 line-clamp-1">{product.name}</p>
               <p className="text-xs text-gray-400">Qty: {quantity}</p>
             </div>
             <span className="text-sm font-bold text-gray-900">
@@ -188,18 +358,22 @@ function CheckoutForm({
         ))}
       </div>
 
-      {/* ✅ Coupon input */}
+      {/* Coupon input */}
       <div>
         <p className="text-sm font-medium text-gray-700 mb-2">Have a coupon?</p>
         <CouponInput />
       </div>
 
+      {/* Loyalty points redemption */}
+      <div>
+        <p className="text-sm font-medium text-gray-700 mb-2">Loyalty Points</p>
+        <LoyaltyRedeemPanel onRedeemChange={setLoyaltyRedeem} />
+      </div>
+
       {/* Stripe card */}
       {paymentMethod === "stripe" && (
         <div>
-          <label className="text-sm font-medium text-gray-700 mb-2 block">
-            Card Details
-          </label>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">Card Details</label>
           <div className="border border-gray-300 rounded-xl p-3 bg-white">
             <CardElement
               options={{
@@ -215,13 +389,11 @@ function CheckoutForm({
               }}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">
-            🔒 Your payment is secured by Stripe
-          </p>
+          <p className="text-xs text-gray-400 mt-1.5">🔒 Your payment is secured by Stripe</p>
         </div>
       )}
 
-      {/* ✅ Price breakdown with discount */}
+      {/* Price breakdown */}
       <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal</span>
@@ -229,11 +401,7 @@ function CheckoutForm({
         </div>
         <div className="flex justify-between text-gray-600">
           <span>Shipping</span>
-          <span
-            className={
-              finalShipping === 0 ? "text-primary-600 font-medium" : ""
-            }
-          >
+          <span className={finalShipping === 0 ? "text-primary-600 font-medium" : ""}>
             {finalShipping === 0 ? "Free" : formatPrice(finalShipping)}
           </span>
         </div>
@@ -241,13 +409,29 @@ function CheckoutForm({
           <span>Tax (5%)</span>
           <span>{formatPrice(tax)}</span>
         </div>
-        {/* ✅ Show discount line if coupon applied */}
-        {applied && discountAmount > 0 && (
+
+        {/* Coupon discount */}
+        {applied && couponDiscount > 0 && (
           <div className="flex justify-between text-green-600 font-medium">
-            <span>Discount ({code})</span>
-            <span>-{formatPrice(discountAmount)}</span>
+            <span>Coupon ({code})</span>
+            <span>-{formatPrice(couponDiscount)}</span>
           </div>
         )}
+
+        {/* Loyalty discount */}
+        {loyaltyRedeem && loyaltyRedeem.redeemType === "discount" && (
+          <div className="flex justify-between text-green-600 font-medium">
+            <span>Loyalty Points</span>
+            <span>-{formatPrice(loyaltyDiscount)}</span>
+          </div>
+        )}
+        {loyaltyRedeem && loyaltyRedeem.redeemType === "shipping" && (
+          <div className="flex justify-between text-green-600 font-medium">
+            <span>Loyalty — Free Shipping</span>
+            <span>-{formatPrice(shipping)}</span>
+          </div>
+        )}
+
         <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
           <span>Total</span>
           <span>{formatPrice(finalTotal)}</span>
@@ -283,11 +467,8 @@ export default function CheckoutPage() {
   const subtotal = useSelector(selectCartSubtotal);
   const shipping = useSelector(selectCartShipping);
   const tax = useSelector(selectCartTax);
-  const total = useSelector(selectCartTotal);
   const { user } = useSelector((s) => s.auth);
-  const { applied, discountAmount, discountType } = useSelector(
-    (s) => s.coupon,
-  ); // ✅
+  const { applied, discountAmount, discountType } = useSelector((s) => s.coupon);
 
   const [step, setStep] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -301,8 +482,7 @@ export default function CheckoutPage() {
     phone: user?.phone || "",
   });
 
-  const handleAddress = (e) =>
-    setAddress((a) => ({ ...a, [e.target.name]: e.target.value }));
+  const handleAddress = (e) => setAddress((a) => ({ ...a, [e.target.name]: e.target.value }));
 
   const validateAddress = () => {
     const required = ["name", "line1", "city", "state", "pincode", "phone"];
@@ -323,13 +503,10 @@ export default function CheckoutPage() {
     return true;
   };
 
-  // ✅ Final total shown in sidebar — reflects coupon discount
+  // Final total in sidebar
   const finalShipping = discountType === "free_shipping" ? 0 : shipping;
   const finalDiscount = discountType !== "free_shipping" ? discountAmount : 0;
-  const finalTotal = Math.max(
-    0,
-    subtotal + finalShipping + tax - finalDiscount,
-  );
+  const finalTotal = Math.max(0, subtotal + finalShipping + tax - finalDiscount);
 
   if (items.length === 0) {
     navigate("/cart");
@@ -356,9 +533,7 @@ export default function CheckoutPage() {
               {s}
             </span>
             {i < STEPS.length - 1 && (
-              <div
-                className={`w-8 sm:w-16 h-0.5 ${i < step ? "bg-primary-400" : "bg-gray-200"}`}
-              />
+              <div className={`w-8 sm:w-16 h-0.5 ${i < step ? "bg-primary-400" : "bg-gray-200"}`} />
             )}
           </div>
         ))}
@@ -374,9 +549,7 @@ export default function CheckoutPage() {
               </h2>
               {user?.addresses?.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2 font-medium">
-                    Saved Addresses
-                  </p>
+                  <p className="text-sm text-gray-600 mb-2 font-medium">Saved Addresses</p>
                   <div className="space-y-2">
                     {user.addresses.map((a, i) => (
                       <button
@@ -445,9 +618,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    City *
-                  </label>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">City *</label>
                   <input
                     name="city"
                     value={address.city}
@@ -457,9 +628,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    State *
-                  </label>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">State *</label>
                   <select
                     name="state"
                     value={address.state}
@@ -475,9 +644,7 @@ export default function CheckoutPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Pincode *
-                  </label>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Pincode *</label>
                   <input
                     name="pincode"
                     value={address.pincode}
@@ -488,9 +655,7 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Phone *
-                  </label>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Phone *</label>
                   <input
                     name="phone"
                     value={address.phone}
@@ -515,9 +680,7 @@ export default function CheckoutPage() {
           {/* Step 1: Payment */}
           {step === 1 && (
             <div className="card p-6">
-              <h2 className="font-display font-bold text-gray-900 text-xl mb-6">
-                Payment Method
-              </h2>
+              <h2 className="font-display font-bold text-gray-900 text-xl mb-6">Payment Method</h2>
               <div className="space-y-3">
                 {PAYMENT_METHODS.map((m) => (
                   <label
@@ -541,24 +704,16 @@ export default function CheckoutPage() {
                     <div
                       className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === m.id ? "border-primary-500 bg-primary-500" : "border-gray-300"}`}
                     >
-                      {paymentMethod === m.id && (
-                        <div className="w-2 h-2 rounded-full bg-white" />
-                      )}
+                      {paymentMethod === m.id && <div className="w-2 h-2 rounded-full bg-white" />}
                     </div>
                   </label>
                 ))}
               </div>
               <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setStep(0)}
-                  className="btn-secondary flex-1 py-3"
-                >
+                <button onClick={() => setStep(0)} className="btn-secondary flex-1 py-3">
                   ← Back
                 </button>
-                <button
-                  onClick={() => setStep(2)}
-                  className="btn-primary flex-1 py-3"
-                >
+                <button onClick={() => setStep(2)} className="btn-primary flex-1 py-3">
                   Review Order →
                 </button>
               </div>
@@ -581,7 +736,7 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* ✅ Order Summary Sidebar — shows discount */}
+        {/* Order Summary Sidebar */}
         <div className="card p-5 h-fit space-y-3">
           <h3 className="font-semibold text-gray-900">Order Summary</h3>
           <div className="space-y-1.5 text-sm text-gray-600">
@@ -591,11 +746,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between">
               <span>Shipping</span>
-              <span
-                className={
-                  finalShipping === 0 ? "text-primary-600 font-medium" : ""
-                }
-              >
+              <span className={finalShipping === 0 ? "text-primary-600 font-medium" : ""}>
                 {finalShipping === 0 ? "Free" : formatPrice(finalShipping)}
               </span>
             </div>
@@ -603,7 +754,6 @@ export default function CheckoutPage() {
               <span>Tax (5%)</span>
               <span>{formatPrice(tax)}</span>
             </div>
-            {/* ✅ Discount row */}
             {applied && finalDiscount > 0 && (
               <div className="flex justify-between text-green-600 font-medium">
                 <span>Discount</span>

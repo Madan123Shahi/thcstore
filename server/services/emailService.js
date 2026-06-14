@@ -72,7 +72,7 @@ export const sendOrderConfirmationEmail = async (order, user) => {
         </span>
       </td>
     </tr>
-  `,
+  `
     )
     .join("");
 
@@ -325,6 +325,106 @@ export const sendWelcomeEmail = async (user) => {
   return sendEmail({
     to: user.email,
     subject: "Welcome to THC Store India 🌿",
+    html,
+  });
+};
+
+// ─────────────────────────────────────────────
+// 5. Refund Email
+// ─────────────────────────────────────────────
+export const sendRefundEmail = async (order, user) => {
+  const html = `
+    <div style="${baseStyle}">
+      ${headerHtml}
+      <div style="padding: 32px;">
+        <h2 style="color: #7c3aed; font-size: 20px; margin: 0 0 8px;">Refund Processed 💰</h2>
+        <p style="color: #6b7280; font-size: 14px; margin: 0 0 24px;">
+          Hi ${user.name}, your refund for order <strong>#${order.orderNumber}</strong> has been
+          successfully processed.
+        </p>
+
+        <!-- Refund Info -->
+        <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 13px; color: #6b7280;">Order Number</span>
+            <span style="font-size: 13px; font-weight: 700; color: #111827;">#${order.orderNumber}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 13px; color: #6b7280;">Refund Amount</span>
+            <span style="font-size: 13px; font-weight: 700; color: #7c3aed;">
+              ₹${order.totalPrice.toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 13px; color: #6b7280;">Payment Method</span>
+            <span style="font-size: 13px; color: #111827;">
+              ${order.paymentMethod === "stripe" ? "Card (Stripe)" : "Cash on Delivery"}
+            </span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="font-size: 13px; color: #6b7280;">Status</span>
+            <span style="font-size: 13px; font-weight: 600; color: #7c3aed;">Refunded</span>
+          </div>
+        </div>
+
+        <!-- Timeline note -->
+        <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          <p style="font-size: 13px; color: #5b21b6; margin: 0;">
+            ⏱️ Refunds typically reflect in your account within <strong>5–7 business days</strong>,
+            depending on your bank or card provider.
+          </p>
+        </div>
+
+        <!-- Items refunded -->
+        <h3 style="font-size: 15px; color: #111827; margin: 0 0 12px;">Items Refunded</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          ${order.items
+            .map(
+              (item) => `
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+              <span style="font-size: 14px; color: #374151;">${item.name}</span><br/>
+              <span style="font-size: 12px; color: #9ca3af;">Qty: ${item.quantity}</span>
+            </td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; text-align: right;">
+              <span style="font-size: 14px; font-weight: 600; color: #111827;">
+                ₹${(item.price * item.quantity).toLocaleString("en-IN")}
+              </span>
+            </td>
+          </tr>
+          `
+            )
+            .join("")}
+          <tr>
+            <td style="padding: 12px 0 0; font-weight: 700; font-size: 16px; color: #111827; border-top: 2px solid #e5e7eb;">
+              Total Refunded
+            </td>
+            <td style="padding: 12px 0 0; text-align: right; font-weight: 700; font-size: 16px; color: #7c3aed; border-top: 2px solid #e5e7eb;">
+              ₹${order.totalPrice.toLocaleString("en-IN")}
+            </td>
+          </tr>
+        </table>
+
+        <!-- CTA -->
+        <div style="text-align: center; margin-top: 28px;">
+          <a href="${CLIENT_URL}/orders/${order._id}"
+            style="background: #7c3aed; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            View Order →
+          </a>
+        </div>
+
+        <!-- Support note -->
+        <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;">
+          Questions? Reply to this email or contact our support team.
+        </p>
+      </div>
+      ${footerHtml}
+    </div>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `Refund Processed — Order #${order.orderNumber}`,
     html,
   });
 };

@@ -15,7 +15,7 @@ const addressSchema = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: [true, "Name is required"], trim: true },
+    name: { type: String, trim: true },
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -27,11 +27,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       unique: true,
-      required: [true, "Phone Number is required"],
+      // required: [true, "Phone Number is required"],
     },
     uploadDL: {
       type: String,
-      required: [true, "Driver License or State ID is required"],
+      // required: [true, "Driver License or State ID is required"],
     },
     password: {
       type: String,
@@ -41,7 +41,9 @@ const userSchema = new mongoose.Schema(
     },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     addresses: [addressSchema],
-    dob: { type: Date, required: [true, "Date of birth is required"] },
+    dob: {
+      type: Date,
+    },
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     prescriptionUploaded: { type: Boolean, default: false },

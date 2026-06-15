@@ -221,7 +221,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Driver Licence Upload */}
-            <Field label="Upload DL or State ID" required error={errors.uploadDL}>
+            <Field label="Upload DL or State ID" error={errors.uploadDL}>
               <input
                 type="file"
                 accept="image/*,.pdf"

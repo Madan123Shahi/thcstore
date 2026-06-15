@@ -1,8 +1,12 @@
 import { z } from "zod";
 
 export const registerSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100)
-    .optional,
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters")
+    .max(100)
+    .optional(),
   email: z.string().trim().toLowerCase().email("Invalid email format"),
   password: z
     .string()
@@ -12,14 +16,15 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian phone number")
-    .optional,
+    .optional(),
   dob: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), "Invalid date of birth")
     .refine((val) => {
       const age = (Date.now() - new Date(val)) / (1000 * 60 * 60 * 24 * 365);
       return age >= 18;
-    }, "You must be at least 18 years old").optional,
+    }, "You must be at least 18 years old")
+    .optional(),
 });
 
 export const loginSchema = z.object({

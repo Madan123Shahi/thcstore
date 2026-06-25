@@ -7,7 +7,7 @@ import {
   getAuthCookie,
   request,
   app,
-} from "../helpers/testHelpers.js";
+} from "../utils/testHelpers.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import Order from "../models/Order.js";

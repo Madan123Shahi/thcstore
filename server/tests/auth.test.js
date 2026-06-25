@@ -6,7 +6,7 @@ import {
   getAuthCookie,
   request,
   app,
-} from "../helpers/testHelpers.js";
+} from "../utils/testHelpers.js";
 
 // ─────────────────────────────────────────────
 // Auth Tests

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { FiPlus, FiEdit2, FiTrash2, FiSearch } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiBox } from "react-icons/fi";
 import { fetchProducts, deleteProduct } from "../../store/slices/productSlice";
 import { formatPrice, getImageUrl } from "../../utils/helpers";
 import AdminLayout from "../../components/layout/AdminLayout";
@@ -10,11 +10,7 @@ import toast from "react-hot-toast";
 
 export default function AdminProducts() {
   const dispatch = useDispatch();
-  const {
-    list: products,
-    loading,
-    pagination,
-  } = useSelector((s) => s.products);
+  const { list: products, loading, pagination } = useSelector((s) => s.products);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState(null);
@@ -24,6 +20,13 @@ export default function AdminProducts() {
     if (search) q.search = search;
     dispatch(fetchProducts(q));
   }, [dispatch, page, search]);
+
+  // ✅ change page + scroll to top, since pagination is local state
+  // (no URL change), so the global ScrollToTop route-watcher never fires here
+  const goToPage = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete "${name}"?`)) return;
@@ -35,9 +38,17 @@ export default function AdminProducts() {
   };
 
   return (
-    <AdminLayout title="Products">
-      <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-        <div className="relative flex-1 max-w-xs">
+    <AdminLayout>
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 mb-6">
+        <h1 className="section-heading text-2xl">Products</h1>
+
+        <div className="justify-self-start inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+          <FiBox className="text-sm" />
+          Total Products
+          <span className="text-sm font-bold">{pagination?.total ?? products.length}</span>
+        </div>
+
+        <div className="relative max-w-xs">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
           <input
             type="text"
@@ -47,12 +58,13 @@ export default function AdminProducts() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="input-field pl-9 py-2 text-sm"
+            className="input-field pl-9 py-2 text-sm w-full"
           />
         </div>
+
         <Link
           to="/admin/products/new"
-          className="btn-primary text-sm px-4 py-2.5 shrink-0"
+          className="btn-primary text-sm px-4 py-2.5 justify-self-start"
         >
           <FiPlus /> Add Product
         </Link>
@@ -88,24 +100,17 @@ export default function AdminProducts() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {products.map((p) => (
-                  <tr
-                    key={p._id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
+                  <tr key={p._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {/* ✅ thumbnail for admin table — tiny, fast */}
                         <img
-                          src={getImageUrl(
-                            p.images?.[0]?.thumbnail || p.images?.[0]?.url,
-                          )}
+                          src={getImageUrl(p.images?.[0]?.thumbnail || p.images?.[0]?.url)}
                           alt={p.name}
                           className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0"
                         />
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-800 line-clamp-1">
-                            {p.name}
-                          </p>
+                          <p className="font-medium text-gray-800 line-clamp-1">{p.name}</p>
                           <div className="flex gap-1 mt-0.5">
                             {p.isFeatured && (
                               <span className="badge bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5">
@@ -121,16 +126,12 @@ export default function AdminProducts() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">
-                      {p.brand}
-                    </td>
+                    <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.brand}</td>
                     <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
                       {p.category?.name || "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="font-semibold text-gray-900">
-                        {formatPrice(p.price)}
-                      </span>
+                      <span className="font-semibold text-gray-900">{formatPrice(p.price)}</span>
                     </td>
                     <td className="px-4 py-3 text-right hidden sm:table-cell">
                       <span
@@ -172,19 +173,19 @@ export default function AdminProducts() {
           {pagination && pagination.pages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
               <p className="text-xs text-gray-400">
-                Showing {(page - 1) * 20 + 1}–
-                {Math.min(page * 20, pagination.total)} of {pagination.total}
+                Showing {(page - 1) * 20 + 1}–{Math.min(page * 20, pagination.total)} of{" "}
+                {pagination.total}
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setPage((p) => p - 1)}
+                  onClick={() => goToPage(page - 1)}
                   disabled={page === 1}
                   className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-40"
                 >
                   ← Prev
                 </button>
                 <button
-                  onClick={() => setPage((p) => p + 1)}
+                  onClick={() => goToPage(page + 1)}
                   disabled={page === pagination.pages}
                   className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-40"
                 >

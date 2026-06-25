@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   FiShoppingCart,
   FiUser,
+  FiUserPlus,
   FiMenu,
   FiX,
   FiHeart,
@@ -71,8 +72,7 @@ export default function Navbar() {
     >
       {/* Announcement bar */}
       <div className="bg-primary-700 text-white text-xs text-center py-2 px-4 font-medium tracking-wide">
-        🌿 Free shipping on orders above ₹999 &nbsp;|&nbsp; Lab-tested &amp;
-        AYUSH-approved products
+        🌿 Free shipping on orders above ₹999 &nbsp;|&nbsp; Lab-tested &amp; AYUSH-approved products
       </div>
 
       <div className="page-container">
@@ -83,16 +83,9 @@ export default function Navbar() {
               <GiLeafSkeleton className="text-white text-xl" />
             </div>
             <div className="leading-none">
-              <span className="font-display font-bold text-gray-900 text-lg">
-                THC
-              </span>
-              <span className="font-display font-bold text-primary-600 text-lg">
-                {" "}
-                Store
-              </span>
-              <p className="text-[10px] text-gray-400 font-sans tracking-widest uppercase">
-                India
-              </p>
+              <span className="font-display font-bold text-gray-900 text-lg">THC</span>
+              <span className="font-display font-bold text-primary-600 text-lg"> Store</span>
+              <p className="text-[10px] text-gray-400 font-sans tracking-widest uppercase">India</p>
             </div>
           </Link>
 
@@ -122,18 +115,12 @@ export default function Navbar() {
           {/* Actions */}
           <div className="flex items-center gap-1">
             {/* Wishlist */}
-            <Link
-              to="/wishlist"
-              className="btn-ghost p-2.5 relative hidden sm:flex"
-            >
+            <Link to="/wishlist" className="btn-ghost p-2.5 relative hidden sm:flex">
               <FiHeart className="text-lg" />
             </Link>
 
             {/* Cart */}
-            <button
-              onClick={() => dispatch(toggleCart())}
-              className="btn-ghost p-2.5 relative"
-            >
+            <button onClick={() => dispatch(toggleCart())} className="btn-ghost p-2.5 relative">
               <FiShoppingCart className="text-lg" />
               {cartCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -165,12 +152,8 @@ export default function Navbar() {
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-lg border border-gray-100 py-1.5 animate-scale-in z-50">
                     <div className="px-4 py-2 border-b border-gray-50">
-                      <p className="text-sm font-semibold text-gray-800 truncate">
-                        {user?.name}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">
-                        {user?.email}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-800 truncate">{user?.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                     </div>
                     <Link
                       to="/profile"
@@ -206,24 +189,27 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="btn-primary py-2 px-4 text-sm hidden sm:flex"
-              >
-                <FiUser className="text-sm" /> Sign In
-              </Link>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link
+                  to="/login"
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors duration-200"
+                >
+                  <FiUser className="text-sm" />
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <FiUserPlus className="text-sm" />
+                  New User
+                </Link>
+              </div>
             )}
 
             {/* Mobile menu toggle */}
-            <button
-              onClick={() => setMobileOpen((v) => !v)}
-              className="btn-ghost p-2.5 lg:hidden"
-            >
-              {mobileOpen ? (
-                <FiX className="text-xl" />
-              ) : (
-                <FiMenu className="text-xl" />
-              )}
+            <button onClick={() => setMobileOpen((v) => !v)} className="btn-ghost p-2.5 lg:hidden">
+              {mobileOpen ? <FiX className="text-xl" /> : <FiMenu className="text-xl" />}
             </button>
           </div>
         </div>
@@ -247,9 +233,22 @@ export default function Navbar() {
               </Link>
             ))}
             {!isLoggedIn && (
-              <Link to="/login" className="btn-primary w-full mt-2 text-sm">
-                Sign In
-              </Link>
+              <div className="flex items-center gap-2 mt-2">
+                <Link
+                  to="/login"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg active:bg-primary-700 transition-colors duration-200"
+                >
+                  <FiUser className="text-sm" />
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg active:bg-gray-50 transition-colors duration-200"
+                >
+                  <FiUserPlus className="text-sm" />
+                  New User
+                </Link>
+              </div>
             )}
           </div>
         </div>

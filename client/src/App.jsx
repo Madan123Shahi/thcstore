@@ -31,6 +31,7 @@ const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminProductForm = lazy(() => import("./pages/admin/AdminProductForm"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const AdminCategories = lazy(() => import("./pages/admin/AdminCategory")); // ✅ new
 
 // ── Scroll to top ─────────────────────────────────────────────
 function ScrollToTop() {
@@ -108,6 +109,9 @@ export default function App() {
           <Loader />
         ) : (
           <Routes>
+            {/* ════════════════════════════════════════════════
+                PUBLIC SITE — wrapped in Layout (Header/Footer/banner)
+               ════════════════════════════════════════════════ */}
             <Route path="/" element={<Layout />}>
               {/* ── Public ── */}
               {/* ✅ Each page wrapped in ErrorBoundary — one page crash won't affect others */}
@@ -246,82 +250,100 @@ export default function App() {
                 }
               />
 
-              {/* ── Admin — lazy + error boundary ── */}
-              <Route
-                path="admin"
-                element={
-                  <AdminRoute>
-                    <Suspense fallback={<Loader />}>
-                      <ErrorBoundary>
-                        <AdminDashboard />
-                      </ErrorBoundary>
-                    </Suspense>
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="admin/products"
-                element={
-                  <AdminRoute>
-                    <Suspense fallback={<Loader />}>
-                      <ErrorBoundary>
-                        <AdminProducts />
-                      </ErrorBoundary>
-                    </Suspense>
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="admin/products/new"
-                element={
-                  <AdminRoute>
-                    <Suspense fallback={<Loader />}>
-                      <ErrorBoundary>
-                        <AdminProductForm />
-                      </ErrorBoundary>
-                    </Suspense>
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="admin/products/:id/edit"
-                element={
-                  <AdminRoute>
-                    <Suspense fallback={<Loader />}>
-                      <ErrorBoundary>
-                        <AdminProductForm />
-                      </ErrorBoundary>
-                    </Suspense>
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="admin/orders"
-                element={
-                  <AdminRoute>
-                    <Suspense fallback={<Loader />}>
-                      <ErrorBoundary>
-                        <AdminOrders />
-                      </ErrorBoundary>
-                    </Suspense>
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="admin/coupons"
-                element={
-                  <AdminRoute>
-                    <Suspense fallback={<Loader />}>
-                      <ErrorBoundary>
-                        <AdminCoupons />
-                      </ErrorBoundary>
-                    </Suspense>
-                  </AdminRoute>
-                }
-              />
-
+              {/* ── 404 (only for unmatched PUBLIC paths) ── */}
               <Route path="*" element={<NotFoundPage />} />
             </Route>
+
+            {/* ════════════════════════════════════════════════
+                ADMIN PANEL — standalone, NOT wrapped in public Layout.
+                AdminLayout (sidebar shell) provides its own chrome,
+                so no Header / Footer / promo banner leaks in here.
+               ════════════════════════════════════════════════ */}
+            <Route
+              path="admin"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminDashboard />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/products"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminProducts />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/products/new"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminProductForm />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/products/:id/edit"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminProductForm />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/orders"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminOrders />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/coupons"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminCoupons />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
+            {/* ✅ Categories */}
+            <Route
+              path="admin/categories"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={<Loader />}>
+                    <ErrorBoundary>
+                      <AdminCategories />
+                    </ErrorBoundary>
+                  </Suspense>
+                </AdminRoute>
+              }
+            />
           </Routes>
         )}
       </BrowserRouter>

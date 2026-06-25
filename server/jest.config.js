@@ -1,10 +1,9 @@
 /** @type {import('jest').Config} */
-module.exports = {
+export default {
   testEnvironment: "node",
   transform: {},
-  extensionsToTreatAsEsm: [".js"],
   testMatch: ["**/__tests__/**/*.test.js"],
-  setupFilesAfterFramework: ["./jest.setup.js"],
+  setupFilesAfterEnv: ["./jest.setup.js"],
   testTimeout: 30000,
   verbose: true,
   forceExit: true,

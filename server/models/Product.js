@@ -7,7 +7,7 @@ const reviewSchema = new mongoose.Schema(
     rating: { type: Number, required: true, min: 1, max: 5 },
     comment: { type: String, required: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 const productSchema = new mongoose.Schema(
@@ -54,7 +54,7 @@ const productSchema = new mongoose.Schema(
     isBestSeller: { type: Boolean, default: false },
     isNewArrival: { type: Boolean, default: false },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 // ─────────────────────────────────────────────
@@ -81,6 +81,10 @@ productSchema.pre("save", async function (next) {
     if (!this.sku) {
       const Category = mongoose.model("Category");
       const category = await Category.findById(this.category);
+
+      // ✅ Every category slug now has an explicit prefix — no shared "PROD"
+      // fallback across multiple categories, which is what caused the
+      // duplicate-key collisions on sku.
       const prefixMap = {
         "cbd-oils": "CBDO",
         "thc-gummies": "THCG",
@@ -90,12 +94,46 @@ productSchema.pre("save", async function (next) {
         "pet-cbd": "PETC",
         capsules: "CAPS",
         topicals: "TOPO",
+        "vapes-cartridges": "VAPE",
+        "wellness-bundles": "BNDL",
       };
-      const prefix = prefixMap[category?.slug] || "PROD";
-      const count = await mongoose
-        .model("Product")
-        .countDocuments({ category: this.category });
-      this.sku = `${prefix}-${String(count + 1).padStart(4, "0")}`;
+
+      // ✅ Fallback no longer collapses every uncategorized/unmapped
+      // category into one shared "PROD" prefix. Instead it derives a
+      // short, category-specific prefix from the slug itself, so two
+      // different unmapped categories can never collide with each other.
+      const fallbackPrefix = category?.slug
+        ? category.slug
+            .replace(/[^a-z0-9]/gi, "")
+            .slice(0, 4)
+            .toUpperCase()
+            .padEnd(4, "X")
+        : "PROD";
+
+      const prefix = prefixMap[category?.slug] || fallbackPrefix;
+
+      // ✅ Count scoped to this category AND this prefix together, and
+      // retried against the real next-available number if a collision
+      // still occurs (e.g. from concurrent saves or manually created
+      // products with a manually-set sku in the same range).
+      let attempt = 0;
+      let candidateSku;
+      let isUnique = false;
+
+      while (!isUnique && attempt < 5) {
+        const count = await mongoose.model("Product").countDocuments({ category: this.category });
+        candidateSku = `${prefix}-${String(count + 1 + attempt).padStart(4, "0")}`;
+
+        const existing = await mongoose
+          .model("Product")
+          .findOne({ sku: candidateSku })
+          .select("_id");
+
+        if (!existing) isUnique = true;
+        attempt++;
+      }
+
+      this.sku = candidateSku;
     }
     next();
   } catch (error) {

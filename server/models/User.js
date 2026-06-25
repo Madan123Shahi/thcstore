@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       unique: true,
+      sparse: true, // ✅ fix: only enforce uniqueness when phone is actually set
       // required: [true, "Phone Number is required"],
     },
     uploadDL: {
@@ -43,6 +44,7 @@ const userSchema = new mongoose.Schema(
     addresses: [addressSchema],
     dob: {
       type: Date,
+      // required: [true, "DOB is required"],
     },
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

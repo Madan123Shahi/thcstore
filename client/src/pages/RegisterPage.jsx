@@ -102,19 +102,24 @@ export default function RegisterPage() {
     if (!result.success) {
       // Build a flat { fieldName: firstMessage } map from Zod's error list
       const fieldErrors = {};
-      for (const issue of result.error.errors) {
+      for (const issue of result.error.issues) {
         const field = issue.path[0]; // e.g. "email", "confirmPassword"
         if (!fieldErrors[field]) fieldErrors[field] = issue.message;
       }
       setErrors(fieldErrors);
 
       // Show the first error as a toast so the user knows something is wrong
-      const first = result.error.errors[0];
+      const first = result.error.issues[0];
       toast.error(first.message);
       return false;
     }
 
     // 2. Validate the file separately (Zod can't inspect File objects)
+    if (!file) {
+      setErrors((prev) => ({ ...prev, uploadDL: "Driver license / State ID is required" }));
+      toast.error("Driver license / State ID is required");
+      return false;
+    }
     const fileError = validateDLFile(file);
     if (fileError) {
       setErrors((prev) => ({ ...prev, uploadDL: fileError }));
@@ -196,7 +201,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Phone */}
-            <Field label="Phone Number" error={errors.phone}>
+            <Field label="Phone Number" required error={errors.phone}>
               <input
                 type="tel"
                 value={form.phone}
@@ -210,7 +215,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Date of Birth */}
-            <Field label="Date of Birth" error={errors.dob}>
+            <Field label="Date of Birth" required error={errors.dob}>
               <input
                 type="date"
                 value={form.dob}
@@ -221,7 +226,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Driver Licence Upload */}
-            <Field label="Upload DL or State ID" error={errors.uploadDL}>
+            <Field label="Upload DL or State ID" required error={errors.uploadDL}>
               <input
                 type="file"
                 accept="image/*,.pdf"

@@ -10,8 +10,6 @@ import { handleReviewLoyalty } from "../services/loyaltyService.js";
  */
 export const getProducts = asyncHandler(async (req, res) => {
   const {
-    page,
-    limit,
     sort,
     category,
     search,
@@ -23,6 +21,9 @@ export const getProducts = asyncHandler(async (req, res) => {
     isBestSeller,
     isNewArrival,
   } = req.query;
+
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.max(parseInt(req.query.limit) || 20, 1);
 
   // ✅ Use Atlas Search when search query is provided
   if (search) {
